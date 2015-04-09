@@ -23,4 +23,4 @@ cp tiny-dhcp-server.py /usr/local/bin/tiny-dhcp-server<br />
 cp tiny-dhcp-server /usr/local/etc/rc.d/<br />
 
 Or run it as a standalone program:<br />
-# tiny-dhcp-server.py tap0
+tiny-dhcp-server.py tap0

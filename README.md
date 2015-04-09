@@ -23,10 +23,12 @@ Standard DHCP implementations suffer from excessive bloat. They require non-triv
 
 ## How do I run it?
 
-Install it into your FreeBSD system by copying files:
+Install it into your FreeBSD system by copying files and installing Python3:
 ```shell
 cp tiny-dhcp-server.py /usr/local/bin/tiny-dhcp-server
 cp tiny-dhcp-server /usr/local/etc/rc.d/
+pkg install --automatic --no-repo-update python34
+(cd /usr/ports/net/py-netifaces && PYTHON_VERSION=3.4 make install clean)
 ```
 and enable it in your /etc/rc.conf:
 ```shell

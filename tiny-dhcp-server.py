@@ -1,6 +1,6 @@
 #!/usr/local/bin/python3.4
 
-# Copyright (c) Yuri Victorovich 2015. All rights reserved.
+# Copyright (C) 2015 by Yuri Victorovich. All rights reserved.
 # This code is licensed under BSD license.
 
 ##
@@ -23,6 +23,7 @@ import struct
 import netifaces   # from port net/py-netifaces
 import codecs
 import datetime
+import signal
 
 daemonize=True
 
@@ -86,6 +87,18 @@ if len(sys.argv) < 2:
     exit(1)
 
 log('starting')
+
+## signals
+def exit_gracefully(signum, frame, original_sigint):
+    log('exiting on signal %d' %signum)
+    exit(1)
+original_sigint = signal.getsignal(signal.SIGINT)
+bound_exit_gracefully = lambda signum, frame: exit_gracefully(signum, frame, original_sigint)
+signal.signal(signal.SIGINT, bound_exit_gracefully)
+signal.signal(signal.SIGTERM, bound_exit_gracefully)
+signal.signal(signal.SIGINT, bound_exit_gracefully)
+signal.signal(signal.SIGALRM, bound_exit_gracefully)
+signal.signal(signal.SIGHUP, signal.SIG_IGN)
 
 ## initialize structure per iface
 ifaces = {}

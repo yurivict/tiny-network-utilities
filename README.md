@@ -18,10 +18,9 @@ Standard DHCP implementations suffer from excessive bloat. They require non-triv
 * net/py-netifaces package installed for Python 3 (ex: py34-netifaces-0.10.3)
 
 ## How do I run it?
-Install it into your FreeBSD system by copying files:
-cp tiny-dhcp-server.py /usr/local/bin/tiny-dhcp-server
-cp tiny-dhcp-server /usr/local/etc/rc.d/
+Install it into your FreeBSD system by copying files:<br />
+cp tiny-dhcp-server.py /usr/local/bin/tiny-dhcp-server<br />
+cp tiny-dhcp-server /usr/local/etc/rc.d/<br />
 
-Or run it as a standalone program:
-
-\# tiny-dhcp-server.py tap0
+Or run it as a standalone program:<br />
+# tiny-dhcp-server.py tap0

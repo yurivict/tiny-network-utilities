@@ -22,9 +22,9 @@ import socket
 import struct
 import netifaces   # from port net/py-netifaces
 import codecs
+import datetime
 
-#daemonize=True
-daemonize=False
+daemonize=True
 
 socket_IP_RECVIF=20
 
@@ -47,7 +47,7 @@ DHCP_REQUEST = 3
 DHCP_ACK = 5
 #DHCP_NAK = 6
 #DHCP_RELEASE = 7
-#DHCP_INFORM = 8
+DHCP_INFORM = 8
 #DHCP_RENEWING = 100
 
 DHCP_IP_MASK = 1
@@ -57,6 +57,21 @@ DHCP_LEASE_TIME = 51
 DHCP_MSG = 53
 DHCP_SERVER = 54
 DHCP_END = 255
+
+def tm():
+    return datetime.datetime.now().strftime('[%Y-%m-%d %H:%M]')
+def log(s):
+    if daemonize:
+        with open("/var/log/tiny-dhcp-server.log", "a") as myfile:
+            myfile.write('%s %s\n' % (tm(), s))
+    else:
+        print('%s %s' % (tm(), s))
+def log_discard(what):
+    if daemonize:
+        with open("/var/log/tiny-dhcp-server.log", "a") as myfile:
+            myfile.write('%s discarded %s\n' % (tm(), what))
+    else:
+        sys.stderr.write('%s discarded %s\n' % (tm(), what))
 
 ##
 ## MAIN
@@ -69,6 +84,8 @@ if not os.geteuid()==0:
 if len(sys.argv) < 2:
     print('Usage: '+sys.argv[0]+' <interface1> {, <interface2> ...}')
     exit(1)
+
+log('starting')
 
 ## initialize structure per iface
 ifaces = {}
@@ -117,22 +134,22 @@ while True:
     if msg_iface in ifaces:
         s = ifaces[msg_iface]
     else:
-        sys.stderr.write('discarding request from host %s on socket %s from some other interface %s\n' % (addr, sock.getsockname(), msg_iface))
+        log_discard('request from host %s on socket %s via an unknown interface %s' % (addr, sock.getsockname(), msg_iface))
         continue # ignore other interfaces
 
-    print('==> Got packet: addr %s on socket %s' % (addr, sock.getsockname()))
+    log('==> got packet: addr %s on socket %s via interface %s' % (addr, sock.getsockname(), msg_iface))
     if len(data) < DHCPFormatSize:
-        sys.stderr.write('discarding too small request of size='+len(data)+' from host %s on socket %s from interface %s\n' % (addr, sock.getsockname(), msg_iface))
+        log_discard('too small request of size='+len(data)+' from host %s on socket %s via interface %s' % (addr, sock.getsockname(), msg_iface))
         continue
     if socket.inet_aton(addr[0]) == s['server']:
-        sys.stderr.write('discarding invalid request from host %s on socket %s from interface %s\n' % (addr, sock.getsockname(), msg_iface))
+        log_discard('invalid request from host %s on socket %s via interface %s' % (addr, sock.getsockname(), msg_iface))
         continue
 
     ## parse
     tail = data[DHCPFormatSize:]
     buf = list(struct.unpack(DHCPFormat, data[:DHCPFormatSize]))
     if buf[BOOTP_OP] != BOOTREQUEST:
-        sys.stderr.write('Not a BOOTREQUEST (op=%d)\n' % (buf[BOOTP_OP]))
+        log_discard('packet which is not a BOOTREQUEST (op=%d)' % (buf[BOOTP_OP]))
         continue
 
     ## options
@@ -157,24 +174,24 @@ while True:
     elif dhcp_msg_type == DHCP_INFORM:
         continue # Windows sends INFORM requests to learn NetBIOS, Domain Server, Domain Name, etc, discard these
     else:
-        sys.stderr.write('discarding unknown DHCP message type %d from host %s on socket %s from interface %s\n' % (dhcp_msg_type, addr, sock.getsockname(), msg_iface))
+        log_discard('discarding unknown DHCP message type %d from host %s on socket %s via interface %s' % (dhcp_msg_type, addr, sock.getsockname(), msg_iface))
         continue
 
     ## allocate IP
 
     # buf[BOOTP_CIADDR] has client's previous address, but we go strictly by MAC address buf[BOOTP_CHADDR]
-    print('client says he has MAC ' + str(buf[BOOTP_CHADDR]) + ' = ' + codecs.getencoder('hex')(buf[BOOTP_CHADDR])[0].decode("utf-8"))
+    log('client says he has MAC = ' + codecs.getencoder('hex')(buf[BOOTP_CHADDR])[0].decode("utf-8"))
     mac = codecs.getencoder('hex')(buf[BOOTP_CHADDR])[0].decode("utf-8")
     if mac in s['mac_to_ip']:
         buf[BOOTP_YIADDR] = s['mac_to_ip'][mac]
-        print('client already has IP '+ socket.inet_ntoa(buf[BOOTP_YIADDR]))
+        log('client already has IP '+ socket.inet_ntoa(buf[BOOTP_YIADDR]))
     else:
         buf[BOOTP_YIADDR] = struct.pack('>I', s['ip_pool'])
         buf[BOOTP_SECS] = 0
         buf[BOOTP_FLAGS] = 0
         s['mac_to_ip'][mac] = buf[BOOTP_YIADDR]
         s['ip_pool'] = s['ip_pool'] + 1
-        print('allocating IP '+ socket.inet_ntoa(buf[BOOTP_YIADDR]))
+        log('allocating IP '+ socket.inet_ntoa(buf[BOOTP_YIADDR]))
     buf[BOOTP_SIADDR] = buf[BOOTP_GIADDR] = s['server']
 
     ## reply
@@ -189,4 +206,4 @@ while True:
     pkt += struct.pack('!BBI',  DHCP_LEASE_TIME, 4, int(365*3600))
     pkt += struct.pack('!BB',   DHCP_END,        0)
     sock.sendto(pkt, (s['server_broadcast'], 68))
-    print('<== Sent response')
+    log('<== sent response')

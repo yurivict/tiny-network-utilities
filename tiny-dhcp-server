@@ -12,8 +12,6 @@
 
 . /etc/rc.subr
 
-#load_rc_config bsdstats
-
 name=tiny_dhcp_server
 rcvar=tiny_dhcp_server_enable
 

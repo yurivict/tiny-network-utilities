@@ -20,14 +20,14 @@ import sys
 import os
 import socket
 import struct
-import netifaces   # from port net/py-netifaces
 import codecs
 import datetime
 import signal
+import netifaces   # from port net/py-netifaces
 
 daemonize=True
 
-socket_IP_RECVIF=20
+socket_IP_RECVIF=20 # missing in python3.4
 
 ## HDCP/BOOTP format
 BOOTREQUEST = 1
@@ -60,7 +60,7 @@ DHCP_SERVER = 54
 DHCP_END = 255
 
 def tm():
-    return datetime.datetime.now().strftime('[%Y-%m-%d %H:%M]')
+    return datetime.datetime.now().strftime('[%Y-%m-%d %H:%M:%S]')
 def log(s):
     if daemonize:
         with open("/var/log/tiny-dhcp-server.log", "a") as myfile:
@@ -83,15 +83,14 @@ if not os.geteuid()==0:
 
 ## command line arguments
 if len(sys.argv) < 2:
-    print('Usage: '+sys.argv[0]+' <interface1> {, <interface2> ...}')
-    exit(1)
+    sys.exit('Usage: '+sys.argv[0]+' <interface1> {, <interface2> ...}')
 
 log('starting')
 
 ## signals
 def exit_gracefully(signum, frame, original_sigint):
     log('exiting on signal %d' %signum)
-    exit(1)
+    sys.exit(1)
 original_sigint = signal.getsignal(signal.SIGINT)
 bound_exit_gracefully = lambda signum, frame: exit_gracefully(signum, frame, original_sigint)
 signal.signal(signal.SIGINT, bound_exit_gracefully)

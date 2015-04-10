@@ -17,7 +17,7 @@
 ##
 
 import sys
-import os
+import os, pwd, grp
 import socket
 import struct
 import codecs
@@ -25,7 +25,9 @@ import datetime
 import signal
 import netifaces   # from port net/py-netifaces
 
+# some options
 daemonize=True
+unprivileged=True
 
 socket_IP_RECVIF=20 # missing in python3.4
 
@@ -59,17 +61,19 @@ DHCP_MSG = 53
 DHCP_SERVER = 54
 DHCP_END = 255
 
+def logfile():
+    return '/var/log/tiny-dhcp-server.log'
 def tm():
     return datetime.datetime.now().strftime('[%Y-%m-%d %H:%M:%S]')
 def log(s):
     if daemonize:
-        with open("/var/log/tiny-dhcp-server.log", "a") as myfile:
+        with open(logfile(), "a") as myfile:
             myfile.write('%s %s\n' % (tm(), s))
     else:
         print('%s %s' % (tm(), s))
 def log_discard(what):
     if daemonize:
-        with open("/var/log/tiny-dhcp-server.log", "a") as myfile:
+        with open(logfile(), "a") as myfile:
             myfile.write('%s discarded %s\n' % (tm(), what))
     else:
         sys.stderr.write('%s discarded %s\n' % (tm(), what))
@@ -119,6 +123,26 @@ sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 sock.setsockopt(socket.IPPROTO_IP, socket_IP_RECVIF, 1)
 sock.bind(('0.0.0.0', 67))
+
+## lose privileges if requested
+
+def drop_privileges(uid_name, gid_name):
+    # get the uid/gid from the name
+    new_uid = pwd.getpwnam(uid_name).pw_uid
+    new_gid = grp.getgrnam(gid_name).gr_gid
+    # set log file permissions so we can still write it
+    os.chown(logfile(), new_uid, new_gid)
+    os.chmod(logfile(), 0o664)
+    # remove group privileges
+    os.setgroups([])
+    # set uid/gid
+    os.setgid(new_gid)
+    os.setuid(new_uid)
+    # set the conservative umask
+    os.umask(0o077)
+
+if unprivileged:
+    drop_privileges('nobody', 'nogroup')
 
 ## daemonize
 if daemonize:

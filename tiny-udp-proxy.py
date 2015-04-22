@@ -30,9 +30,10 @@ import random
 import string
 import signal
 import time
+import atexit
 
 ##
-## Command line arguments
+## Command line arguments and usage
 ##
 
 arg_clnt_type=None
@@ -40,13 +41,15 @@ arg_clnt_divert_ip=None
 arg_clnt_divert_port=None
 arg_peer_type=None
 arg_peer_local_ip=None
+arg_cmd_up=None
+arg_cmd_down=None
 
 def usage():
-    print('%s -c <client-spec> -p <peer-spec>' % (sys.argv[0]))
+    print('%s -c <client-spec> -p <peer-spec> {-u <cmd-up>} {-d <cmd-down>}' % (sys.argv[0]))
     sys.exit(2)
 
 try:
-    opts, args = getopt.getopt(sys.argv[1:], "c:p:",["client=","peer="])
+    opts, args = getopt.getopt(sys.argv[1:], "c:p:u:d:",["client=","peer=","cmd-up=","cmd-down="])
 except getopt.GetoptError:
     usage()
 for opt,arg in opts:
@@ -79,6 +82,10 @@ for opt,arg in opts:
         else:
             print("peer-spec error: %s isn't supported" % (peer_spec[0]))
             usage()
+    elif opt in ("-u", "--cmd-up"):
+        arg_cmd_up = arg
+    elif opt in ("-d", "--cmd-down"):
+        arg_cmd_down = arg
 
 if arg_clnt_type == None:
     print('No client connection specified')
@@ -87,14 +94,19 @@ if arg_peer_type == None:
     print('No peer connection specified')
     usage()
 
-# options
+##
+## options
+##
+
 peer_udp_port_lo=19000
 peer_udp_port_hi=19299
 heartbit_period_sec=1
 idle_num_evts=100
 opt_socket_expiration_ms=5000
 
-# stats
+##
+## stats
+##
 
 cnt_clnt_recv = 0
 cnt_clnt_sent = 0
@@ -355,9 +367,24 @@ def on_idle():
     all_sockets_v = new_all_sockets_v
     #print("<-- idle: expired %d sockets, left %d sockets" % (cnt_exp, cnt_lve))
 
+def run_rmd_down():
+    global arg_cmd_down
+    res = os.system(arg_cmd_down)
+    if res != 0:
+        print('%s: Failed to run cmd-down!' % (sys.argv[0]))
+
 ##
 ## MAIN cycle
 ##
+
+# run cmd-up if any
+if arg_cmd_up != None:
+    res = os.system(arg_cmd_up)
+    if res != 0:
+        print('%s: Failed to run cmd-up!' % (sys.argv[0]))
+        sys.exit(3)
+    if arg_cmd_down != None:
+        atexit.register(run_rmd_down)
 
 # create sockets
 sock_clnt = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket_IPPROTO_DIVERT)
@@ -366,6 +393,7 @@ all_sockets_v.append(sock_clnt)
 sock_clnt_w = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
 sock_clnt_w.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
 
+# main event loop
 while True:
     # select
     #print('---> select nsock=%d clnt-io=(%d/%d) peer-io=(%d/%d)' % (len(all_sockets_v), cnt_clnt_recv, cnt_clnt_sent, cnt_peer_recv, cnt_peer_sent))

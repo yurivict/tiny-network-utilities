@@ -92,7 +92,7 @@ peer_udp_port_lo=19000
 peer_udp_port_hi=19299
 heartbit_period_sec=1
 idle_num_evts=100
-opt_socket_expiration_ms=1000
+opt_socket_expiration_ms=5000
 
 # stats
 
@@ -254,7 +254,9 @@ def ept_to_str(ip_dst, port_dst):
 def get_channel(ip_src, port_src, ip_dst, port_dst):
     key = ept_to_str(ip_dst, port_dst)+"/"+ept_to_str(ip_src, port_src)
     if key in channels:
-        return channels[key]
+        chan = channels[key]
+        use_channel(chan)
+        return chan
     else:
         # allocate port and create socket
         lport = alloc_lport()
@@ -341,7 +343,7 @@ def on_idle():
     cnt_lve = 0
     for key,chan in channels.items():
         if chan['tm_last_pkt'] + opt_socket_expiration_ms < tm_now:
-            free_lports.append(chan['lport'])
+            release_lport(chan['lport'])
             del all_sockets_m[id(chan['sock'])]
             keys_to_delete[key] = None
             cnt_exp = cnt_exp+1
@@ -366,9 +368,9 @@ sock_clnt_w.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
 
 while True:
     # select
-    print('---> select nsock=%d clnt-io=(%d/%d) peer-io=(%d/%d)' % (len(all_sockets_v), cnt_clnt_recv, cnt_clnt_sent, cnt_peer_recv, cnt_peer_sent))
+    #print('---> select nsock=%d clnt-io=(%d/%d) peer-io=(%d/%d)' % (len(all_sockets_v), cnt_clnt_recv, cnt_clnt_sent, cnt_peer_recv, cnt_peer_sent))
     (ii,oo,ee) = select.select(all_sockets_v,[],[], heartbit_period_sec)
-    print('<--- select nready='+str(len(ii)))
+    #print('<--- select nready='+str(len(ii)))
     for sock_ready in ii:
         (data, addr) = sock_ready.recvfrom(64000, 1024)
         if sock_ready == sock_clnt:

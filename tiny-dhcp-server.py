@@ -208,6 +208,7 @@ while True:
     elif dhcp_msg_type == DHCP_REQUEST:
         dhcp_reply = DHCP_ACK
     elif dhcp_msg_type == DHCP_INFORM:
+        log_discard('discarding DHCP INFORM message from host %s on socket %s via interface %s' % (addr, sock.getsockname(), msg_iface))
         continue # Windows sends INFORM requests to learn NetBIOS, Domain Server, Domain Name, etc, discard these
     else:
         log_discard('discarding unknown DHCP message type %d from host %s on socket %s via interface %s' % (dhcp_msg_type, addr, sock.getsockname(), msg_iface))

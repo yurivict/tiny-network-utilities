@@ -15,6 +15,8 @@
 ## Terminology: Tiny UDP proxy receives the packets from clients, and sends them to remote peers
 ##
 
+# REQUIRES: kldload ipdivert
+
 ## Sample divert ipfw rules
 #${fwcmd} add 03018 divert 5060 log udp from 1.1.1.2 to any in via tap1
 #${fwcmd} add 03018 allow log udp from any to 1.1.1.0/24 out via tap1
@@ -31,6 +33,14 @@ import string
 import signal
 import time
 import atexit
+import hexdump
+
+##
+## some options
+##
+
+do_log_packets=False
+do_prn_packets=False
 
 ##
 ## Command line arguments and usage
@@ -121,12 +131,22 @@ def get_tm_ms():
     return int(round(time.time() * 1000))
 def logfile():
     return '/var/log/tiny-udp-proxy.log'
+def logfile_pkt():
+    return '/var/log/tiny-udp-proxy-pkts.log'
 def tm():
     return datetime.datetime.now().strftime('[%Y-%m-%d %H:%M:%S]')
 def log(s):
     print("LOG %s" % (s))
     with open(logfile(), "a") as myfile:
         myfile.write('%s %s\n' % (tm(), s))
+def log_pkt(is_req, ip, port, data):
+    if do_log_packets:
+        with open(logfile_pkt(), "a") as myfile:
+            hstr=hexdump.hexdump(data, 'return')
+            myfile.write("%s peer=%s:%d\n" % ('REQ' if is_req else "RES", ip, port))
+            myfile.write(hstr)
+            myfile.write("\n\n")
+        
 def log_discard(s):
     print("DISCARDED %s" % (s))
     with open(logfile(), "a") as myfile:
@@ -172,7 +192,6 @@ def unpack_ip(ip):
     return ".".join(map(str, struct.unpack('BBBB', ip)))
 
 def packet_new_ip_headers(proto, ip_src, ip_dst, pktid, remlen):
-    print('packet_new_ip_headers: ip_src='+ip_src+' ip_dst='+ip_dst+' pktid='+str(pktid)+' remlen='+str(remlen))
     # consts in the IP header
     version = 4
     ihl = 5 # Internet Header Length
@@ -208,21 +227,19 @@ def packet_new_udp_headers(port_src, port_dst, remlen):
                  cksum))
     return header
 
-def packet_new_udp_headers_for_cksum(ip_src, ip_dst, orig_udp_header, rmlen):
-    cksum=0
+def packet_new_udp_headers_for_cksum(ip_src, ip_dst, orig_udp_header, payload_bytes):
     header = bytearray(struct.pack("!4s4sBBH",
                  socket.inet_aton(ip_src),
                  socket.inet_aton(ip_dst),
                  0,
                  socket.IPPROTO_UDP,
-                 8+rmlen))
-    return header+orig_udp_header
+                 8+len(payload_bytes)))
+    return header+orig_udp_header+payload_bytes
 
-def packet_new(ip_src, ip_dst, port_src, port_dst, pktid, payload_bytes):
+def packet_new_udp(ip_src, ip_dst, port_src, port_dst, pktid, payload_bytes):
     pkti = packet_new_ip_headers(socket.IPPROTO_UDP, ip_src, ip_dst, pktid, 8+len(payload_bytes))
     pktu = packet_new_udp_headers(port_src, port_dst, len(payload_bytes))
-    pktu_s = packet_new_udp_headers_for_cksum(ip_src, ip_dst, pktu, len(payload_bytes))
-    pktu[6:8] = bytearray(struct.pack("H", socket.htons(checksum(pktu_s+payload_bytes))))
+    pktu[6:8] = bytearray(struct.pack("H", socket.htons(checksum(packet_new_udp_headers_for_cksum(ip_src, ip_dst, pktu, payload_bytes)))))
     return pkti+pktu+payload_bytes
 
 ###
@@ -252,13 +269,16 @@ def release_lport(lport):
     free_lports.append(lport)
 
 def create_peer_socket(lport):
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-    try:
-        sock.bind((arg_peer_local_ip, lport))
-    except socket.error:
-        log("bind on lport %u failed" % (lport))
-        return None # port must be unavailable
-    return sock
+    try_cnt = 0
+    while try_cnt < 5:
+      try_cnt = try_cnt+1
+      sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+      try:
+          sock.bind((arg_peer_local_ip, lport))
+          return sock
+      except socket.error:
+          log("bind on lport %u failed" % (lport))
+    return None # port must be unavailable after several tries
 
 def ept_to_str(ip_dst, port_dst):
     return "%s:%u" % (ip_dst, port_dst)
@@ -279,7 +299,7 @@ def get_channel(ip_src, port_src, ip_dst, port_dst):
         peer_sock = create_peer_socket(lport)
         if peer_sock == None:
             log('failed to create socket, dropping client packet for '+key)
-            free_lport(lport)
+            release_lport(lport)
             return None
         all_sockets_v.append(peer_sock)
         # success: add the channel
@@ -313,17 +333,21 @@ def recv_clnt(data,addr):
     pkt_port_src = unpack_port(data[20:22])
     pkt_port_dst = unpack_port(data[22:24])
     pkt_payload  = data[28:]
-    print("RECV from CLNT %s:%d to peer %s:%d raw-pkt.size=%d" % (pkt_ip_src, pkt_port_src, pkt_ip_dst, pkt_port_dst, len(data)))
+    if do_prn_packets:
+        print("RECV from CLNT %s:%d to peer %s:%d raw-pkt.size=%d" % (pkt_ip_src, pkt_port_src, pkt_ip_dst, pkt_port_dst, len(data)))
     # find socket to send to
     chan = get_channel(pkt_ip_src, pkt_port_src, pkt_ip_dst, pkt_port_dst)
     if chan == None:
         return
 
     # send from ourselves
-    print('---> SEND CLNT->PEER: %s:%d->{lport=%d}->%s:%d' % (chan['ip_clnt'], chan['port_clnt'], chan['lport'], pkt_ip_dst, pkt_port_dst))
+    if do_prn_packets:
+        print('---> SEND CLNT->PEER: %s:%d->{lport=%d}->%s:%d' % (chan['ip_clnt'], chan['port_clnt'], chan['lport'], pkt_ip_dst, pkt_port_dst))
     chan['sock'].sendto(pkt_payload, (pkt_ip_dst, pkt_port_dst))
+    log_pkt(True, pkt_ip_dst, pkt_port_dst, pkt_payload)
     cnt_peer_sent = cnt_peer_sent+1
-    print('<--- SEND CLNT->PEER: %s:%d->{lport=%d}->%s:%d' % (chan['ip_clnt'], chan['port_clnt'], chan['lport'], pkt_ip_dst, pkt_port_dst))
+    if do_prn_packets:
+        print('<--- SEND CLNT->PEER: %s:%d->{lport=%d}->%s:%d' % (chan['ip_clnt'], chan['port_clnt'], chan['lport'], pkt_ip_dst, pkt_port_dst))
 
 def recv_peer(chan,data,addr):
     # count
@@ -336,12 +360,15 @@ def recv_peer(chan,data,addr):
         
     # create the complete IP/UDP packet
     chan['pktid'] = chan['pktid']+1 if chan['pktid']<65535 else 1
-    pkt = packet_new(addr[0], chan['ip_clnt'], chan['port_peer'], chan['port_clnt'], chan['pktid'], data)
+    pkt = packet_new_udp(addr[0], chan['ip_clnt'], chan['port_peer'], chan['port_clnt'], chan['pktid'], data)
 
     # send the response back to client
-    print('---> SEND PEER->CLNT: %s:%d->{lport=%d}->%s:%d' % (chan['ip_peer'], chan['port_peer'], chan['lport'], chan['ip_clnt'], chan['port_clnt']))
+    if do_prn_packets:
+        print('---> SEND PEER->CLNT: %s:%d->{lport=%d}->%s:%d' % (chan['ip_peer'], chan['port_peer'], chan['lport'], chan['ip_clnt'], chan['port_clnt']))
     sock_clnt_w.sendto(pkt, (chan['ip_clnt'], chan['port_clnt']))
-    print('<--- SEND PEER->CLNT: %s:%d->{lport=%d}->%s:%d' % (chan['ip_peer'], chan['port_peer'], chan['lport'], chan['ip_clnt'], chan['port_clnt']))
+    log_pkt(False, chan['ip_peer'], chan['port_peer'], data)
+    if do_prn_packets:
+        print('<--- SEND PEER->CLNT: %s:%d->{lport=%d}->%s:%d' % (chan['ip_peer'], chan['port_peer'], chan['lport'], chan['ip_clnt'], chan['port_clnt']))
 
 def on_idle():
     global channels, all_sockets_v, all_sockets_m, free_lports
@@ -367,11 +394,21 @@ def on_idle():
     all_sockets_v = new_all_sockets_v
     #print("<-- idle: expired %d sockets, left %d sockets" % (cnt_exp, cnt_lve))
 
-def run_rmd_down():
+def run_cmd_down():
     global arg_cmd_down
     res = os.system(arg_cmd_down)
     if res != 0:
         print('%s: Failed to run cmd-down!' % (sys.argv[0]))
+
+def create_sock_divert(ip,port):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket_IPPROTO_DIVERT)
+    sock.bind((ip, port))
+    return sock
+
+def create_sock_raw_ip():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
+    sock.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
+    return sock
 
 ##
 ## MAIN cycle
@@ -384,21 +421,17 @@ if arg_cmd_up != None:
         print('%s: Failed to run cmd-up!' % (sys.argv[0]))
         sys.exit(3)
     if arg_cmd_down != None:
-        atexit.register(run_rmd_down)
+        atexit.register(run_cmd_down)
 
 # create sockets
-sock_clnt = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket_IPPROTO_DIVERT)
-sock_clnt.bind((arg_clnt_divert_ip, arg_clnt_divert_port))
+sock_clnt = create_sock_divert(arg_clnt_divert_ip, arg_clnt_divert_port)
 all_sockets_v.append(sock_clnt)
-sock_clnt_w = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
-sock_clnt_w.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
+sock_clnt_w = create_sock_raw_ip()
 
 # main event loop
 while True:
     # select
-    #print('---> select nsock=%d clnt-io=(%d/%d) peer-io=(%d/%d)' % (len(all_sockets_v), cnt_clnt_recv, cnt_clnt_sent, cnt_peer_recv, cnt_peer_sent))
     (ii,oo,ee) = select.select(all_sockets_v,[],[], heartbit_period_sec)
-    #print('<--- select nready='+str(len(ii)))
     for sock_ready in ii:
         (data, addr) = sock_ready.recvfrom(64000, 1024)
         if sock_ready == sock_clnt:

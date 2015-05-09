@@ -8,7 +8,7 @@
 ##
 ## This is the minimalistic UDP proxy server implementation for FreeBSD (has some OS-specific parts)
 ## It can listen to UDP on some preset set of ports, or get the bulk of UDP traffic diverted to it with
-## firewall. It can then send the UDP traffic out locally, of tunnel this traffic remotely and send it
+## firewall. It can then send the UDP traffic out locally, or tunnel this traffic remotely and send it
 ## out from there.
 ## It is useful A
 ##
@@ -40,7 +40,7 @@ import hexdump
 ##
 
 do_log_packets=False
-do_prn_packets=True
+do_prn_packets=False
 
 ##
 ## Command line arguments and usage
@@ -395,7 +395,6 @@ def on_idle():
               % (key,chan['lport'],opt_socket_expiration_ms/1000, chan['cnt_in'], chan['cnt_out']))
         del channels[key]
     all_sockets_v = new_all_sockets_v
-    #print("<-- idle: expired %d sockets, left %d sockets" % (cnt_exp, cnt_lve))
 
 def run_cmd_down():
     global arg_cmd_down

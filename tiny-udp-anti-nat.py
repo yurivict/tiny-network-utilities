@@ -11,6 +11,13 @@
 ## provided by the firewall rules.
 ##
 
+## Sample divert ipfw rules
+#$ipfw 03055 divert 03056 log udp from 1.1.1.2 to any in via tap1
+#$ipfw 03056 divert 03056 log udp from 1.1.1.1 to any out via tap1
+#$ipfw 03057 allow log udp from 1.1.1.0/24 to 1.1.1.1 in via tap1
+#$ipfw 03058 allow log udp from 1.1.1.1 to 1.1.1.0/24 out via tap1
+
+
 import socket
 import struct
 import net_checksums

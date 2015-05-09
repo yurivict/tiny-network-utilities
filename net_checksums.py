@@ -51,4 +51,3 @@ def packet_new_udp_headers_for_cksum(pkt):
 def checksum_calc_udp_packet(pkt):
     pkt[26:28] = bytearray(struct.pack("H", 0))
     pkt[26:28] = bytearray(struct.pack("H", socket.htons(checksum(packet_new_udp_headers_for_cksum(pkt)))))
-    

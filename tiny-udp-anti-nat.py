@@ -69,7 +69,7 @@ while True:
     else:
         print('unknown packet received: port=%d' % (pkt_port_dst))
     # recompute checksum
-    checksum_calc_udp_packet(pkt)
+    net_checksums.checksum_calc_udp_packet(pkt)
     # send further
     sock.sendto(pkt, addr)
 

@@ -34,6 +34,7 @@ import signal
 import time
 import atexit
 import hexdump
+import net_checksums
 
 ##
 ## some options
@@ -156,38 +157,6 @@ def log_discard(s):
 ### BEGIN Packet generator
 ###
 
-def is_big_endian():
-    return struct.pack("H",1) == "\x00\x01"
-
-# Checksums are specified in rfc#768
-if is_big_endian():
-    def checksum(pkt):
-        adj=False
-        if len(pkt) % 2 == 1:
-            pkt += bytearray([0])
-            adj=True
-        s = sum(array.array("H", pkt))
-        s = (s >> 16) + (s & 0xffff)
-        s += s >> 16
-        s = ~s
-        if adj:
-            pkt[len(pkt)-1:] = b''
-        return s & 0xffff
-else:
-    def checksum(pkt):
-        adj=False
-        if len(pkt) % 2 == 1:
-            pkt += bytearray([0])
-            adj=True
-        s = sum(array.array("H", pkt))
-        s = (s >> 16) + (s & 0xffff)
-        s += s >> 16
-        s = ~s
-        if adj:
-            pkt[len(pkt)-1:] = b''
-        return (((s>>8)&0xff)|s<<8) & 0xffff
-
-
 def unpack_ip(ip):
     return ".".join(map(str, struct.unpack('BBBB', ip)))
 
@@ -215,7 +184,7 @@ def packet_new_ip_headers(proto, ip_src, ip_dst, pktid, remlen):
                 cksum,
                 socket.inet_aton(ip_src),
                 socket.inet_aton(ip_dst)))
-    ip_header[10:12] = bytearray(struct.pack("H", socket.htons(checksum(ip_header))))
+    ip_header[10:12] = bytearray(struct.pack("H", socket.htons(net_checksums.checksum(ip_header))))
     return ip_header
 
 def packet_new_udp_headers(port_src, port_dst, remlen):
@@ -231,20 +200,6 @@ def packet_new_udp(ip_src, ip_dst, port_src, port_dst, pktid, payload_bytes):
     pkti = packet_new_ip_headers(socket.IPPROTO_UDP, ip_src, ip_dst, pktid, 8+len(payload_bytes))
     pktu = packet_new_udp_headers(port_src, port_dst, len(payload_bytes))
     return pkti+pktu+payload_bytes
-
-def packet_new_udp_headers_for_cksum(pkt):
-    header = bytearray(struct.pack("!4s4sBBH",
-                 pkt[12:16],
-                 pkt[16:20],
-                 0,
-                 socket.IPPROTO_UDP,
-                 len(pkt)-20))
-    return header+pkt[20:]
-
-def checksum_calc_udp_packet(pkt):
-    pkt[26:28] = bytearray(struct.pack("H", 0))
-    pkt[26:28] = bytearray(struct.pack("H", socket.htons(checksum(packet_new_udp_headers_for_cksum(pkt)))))
-    
 
 ###
 ### END Packet generator
@@ -360,7 +315,7 @@ def recv_peer(chan,data,addr):
     # create the complete IP/UDP packet
     chan['pktid'] = chan['pktid']+1 if chan['pktid']<65535 else 1
     pkt = packet_new_udp(addr[0], chan['ip_clnt'], chan['port_peer'], chan['port_clnt'], chan['pktid'], data)
-    checksum_calc_udp_packet(pkt)
+    net_checksums.checksum_calc_udp_packet(pkt)
     # send the response back to client
     sock_clnt_w.sendto(pkt, (chan['ip_clnt'], chan['port_clnt']))
     # log

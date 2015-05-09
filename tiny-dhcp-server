@@ -1,0 +1,30 @@
+#!/bin/sh 
+
+# PROVIDE: tiny_dhcp_server
+# REQUIRE: LOGIN
+# KEYWORD: shutdown
+
+# Add the following lines to /etc/rc.conf to enable tiny-dhcp-server:
+# tiny_dhcp_server_enable (bool):	Set to "YES" to enable dhcp. Default: NO
+# tiny_dhcp_server_ifaces (list):	Set it to the list of interfaces. Default: ""
+#                                       At least one interface is required.
+#
+
+. /etc/rc.subr
+
+name=tiny_dhcp_server
+rcvar=tiny_dhcp_server_enable
+
+load_rc_config ${name}
+
+: ${tiny_dhcp_server_enable="NO"}
+: ${tiny_dhcp_server_ifaces=""}
+
+command=/usr/local/bin/tiny-dhcp-server
+command_args="${tiny_dhcp_server_ifaces}"
+
+check_process() {
+  echo $(pgrep -f 'tiny-dhcp-server')
+}
+
+run_rc_command "$1"

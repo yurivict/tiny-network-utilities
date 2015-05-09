@@ -34,6 +34,7 @@ import signal
 import time
 import atexit
 import hexdump
+from timeit import default_timer as timer
 import net_checksums
 
 ##
@@ -134,24 +135,27 @@ def logfile():
     return '/var/log/tiny-udp-proxy.log'
 def logfile_pkt():
     return '/var/log/tiny-udp-proxy-pkts.log'
-def tm():
+def tm_log():
     return datetime.datetime.now().strftime('[%Y-%m-%d %H:%M:%S]')
+def tm_ms():
+    global timer_process_start
+    return '%0.3f' % (timer() - timer_process_start)
 def log(s):
     print("LOG %s" % (s))
     with open(logfile(), "a") as myfile:
-        myfile.write('%s %s\n' % (tm(), s))
+        myfile.write('%s %s %s\n' % (tm_ms(), tm_log(), s))
 def log_pkt(is_req, ip, port, data):
     if do_log_packets:
         with open(logfile_pkt(), "a") as myfile:
             hstr=hexdump.hexdump(data, 'return')
-            myfile.write("%s peer=%s:%d\n" % ('REQ' if is_req else "RES", ip, port))
+            myfile.write("%s %s peer=%s:%d\n" % (tm_ms(), 'REQ' if is_req else "RES", ip, port))
             myfile.write(hstr)
             myfile.write("\n\n")
         
 def log_discard(s):
     print("DISCARDED %s" % (s))
     with open(logfile(), "a") as myfile:
-        myfile.write('packet discarded: %s %s\n' % (tm(), s))
+        myfile.write('%s packet discarded: %s %s\n' % (tm_ms(), tm_log(), s))
 
 ###
 ### BEGIN Packet generator
@@ -293,8 +297,6 @@ def recv_clnt(data,addr):
     pkt_port_src = unpack_port(data[20:22])
     pkt_port_dst = unpack_port(data[22:24])
     pkt_payload  = data[28:]
-    if do_prn_packets:
-        print("RECV from CLNT %s:%d to peer %s:%d raw-pkt.size=%d" % (pkt_ip_src, pkt_port_src, pkt_ip_dst, pkt_port_dst, len(data)))
     # find socket to send to
     chan = get_channel(pkt_ip_src, pkt_port_src, pkt_ip_dst, pkt_port_dst)
     if chan == None:
@@ -304,7 +306,7 @@ def recv_clnt(data,addr):
     # log
     log_pkt(True, pkt_ip_dst, pkt_port_dst, pkt_payload)
     if do_prn_packets:
-        print('CLNT->PEER: %s:%d->{lport=%d}->%s:%d' % (chan['ip_clnt'], chan['port_clnt'], chan['lport'], pkt_ip_dst, pkt_port_dst))
+        print('%s CLNT->PEER: %s:%d->{lport=%d}->%s:%d' % (tm_ms(), chan['ip_clnt'], chan['port_clnt'], chan['lport'], pkt_ip_dst, pkt_port_dst))
     # count
     cnt_clnt_recv = cnt_clnt_recv+1
     cnt_peer_sent = cnt_peer_sent+1
@@ -321,7 +323,7 @@ def recv_peer(chan,data,addr):
     # log
     log_pkt(False, chan['ip_peer'], chan['port_peer'], data)
     if do_prn_packets:
-        print('PEER->CLNT: %s:%d->{lport=%d}->%s:%d' % (chan['ip_peer'], chan['port_peer'], chan['lport'], chan['ip_clnt'], chan['port_clnt']))
+        print('%s PEER->CLNT: %s:%d->{lport=%d}->%s:%d' % (tm_ms(), chan['ip_peer'], chan['port_peer'], chan['lport'], chan['ip_clnt'], chan['port_clnt']))
     # count
     cnt_peer_recv = cnt_peer_recv+1
     chan['cnt_in'] = chan['cnt_in']+1
@@ -384,6 +386,9 @@ if arg_cmd_up != None:
 sock_clnt = create_sock_divert(arg_clnt_divert_ip, arg_clnt_divert_port)
 all_sockets_v.append(sock_clnt)
 sock_clnt_w = create_sock_raw_ip()
+
+# start time
+timer_process_start = timer()
 
 # main event loop
 while True:

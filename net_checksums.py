@@ -1,3 +1,9 @@
+
+# Copyright (C) 2015 by Yuri Victorovich. All rights reserved.
+# This code is licensed under BSD license.
+
+## This is the module that recomputes IP and UDP packet checksums
+
 import socket
 import struct
 import array

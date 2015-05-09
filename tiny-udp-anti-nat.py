@@ -1,8 +1,15 @@
 #!/usr/local/bin/python3.4
 
-#
-# This module changes the destination port of USB packets
-#
+# Copyright (C) 2015 by Yuri Victorovich. All rights reserved.
+# This code is licensed under BSD license.
+
+##
+## tiny-udp-anti-nat
+##
+## This is the UDP packet filter that changes the destination ip and port of USB
+## packets in both directions. It gets UDP packets from the divert socket
+## provided by the firewall rules.
+##
 
 import socket
 import struct

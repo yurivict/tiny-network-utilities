@@ -112,7 +112,7 @@ peer_udp_port_lo=19000
 peer_udp_port_hi=19299
 heartbit_period_sec=1
 idle_num_evts=100
-opt_socket_expiration_ms=5000
+opt_socket_expiration_ms=30000 # 30 sec
 
 ##
 ## stats
@@ -284,7 +284,7 @@ def ept_to_str(ip_dst, port_dst):
     return "%s:%u" % (ip_dst, port_dst)
 
 def get_channel(ip_src, port_src, ip_dst, port_dst):
-    key = ept_to_str(ip_dst, port_dst)+"/"+ept_to_str(ip_src, port_src)
+    key = ept_to_str(ip_src, port_src)
     if key in channels:
         chan = channels[key]
         use_channel(chan)
@@ -313,6 +313,8 @@ def get_channel(ip_src, port_src, ip_dst, port_dst):
         chan['port_clnt'] = port_src
         chan['port_peer'] = port_dst
         chan['pktid'] = int(0x10000*random.random())
+        chan['cnt_out'] = 0 # number of packets tunnelled clnt->peer
+        chan['cnt_in'] = 0 # number of packets tunnelled peer->clnt
         channels[key] = chan
         all_sockets_m[id(peer_sock)] = chan
         print('created the channel for %s with port %d' % (key,lport))
@@ -326,7 +328,6 @@ def unpack_port(port_bytes):
 
 def recv_clnt(data,addr):
     global cnt_clnt_recv, cnt_peer_sent
-    cnt_clnt_recv = cnt_clnt_recv+1
     # full UDP packet is in data, packet IP is described as 'struct ip' (netinet/ip.h) is received as data, parse it:
     pkt_ip_src   = unpack_ip(data[12:16])
     pkt_ip_dst   = unpack_ip(data[16:20])
@@ -339,40 +340,34 @@ def recv_clnt(data,addr):
     chan = get_channel(pkt_ip_src, pkt_port_src, pkt_ip_dst, pkt_port_dst)
     if chan == None:
         return
-
     # send from ourselves
-    if do_prn_packets:
-        print('---> SEND CLNT->PEER: %s:%d->{lport=%d}->%s:%d' % (chan['ip_clnt'], chan['port_clnt'], chan['lport'], pkt_ip_dst, pkt_port_dst))
     chan['sock'].sendto(pkt_payload, (pkt_ip_dst, pkt_port_dst))
+    # log
     log_pkt(True, pkt_ip_dst, pkt_port_dst, pkt_payload)
-    cnt_peer_sent = cnt_peer_sent+1
     if do_prn_packets:
-        print('<--- SEND CLNT->PEER: %s:%d->{lport=%d}->%s:%d' % (chan['ip_clnt'], chan['port_clnt'], chan['lport'], pkt_ip_dst, pkt_port_dst))
+        print('CLNT->PEER: %s:%d->{lport=%d}->%s:%d' % (chan['ip_clnt'], chan['port_clnt'], chan['lport'], pkt_ip_dst, pkt_port_dst))
+    # count
+    cnt_clnt_recv = cnt_clnt_recv+1
+    cnt_peer_sent = cnt_peer_sent+1
+    chan['cnt_out'] = chan['cnt_out']+1
 
 def recv_peer(chan,data,addr):
-    # count
     global cnt_peer_recv
-    cnt_peer_recv = cnt_peer_recv+1
-    # see if the source address is what channel was created for
-    if addr[0] != chan['ip_peer'] or addr[1] != chan['port_peer']:
-        log_discard("packet from remote host %s:%d (lport %d) doesn't match the channel ep=%s:%d" % (addr[0], addr[1], chan['lport'], chan['ip_peer'], chan['port_peer']))
-        return
-        
     # create the complete IP/UDP packet
     chan['pktid'] = chan['pktid']+1 if chan['pktid']<65535 else 1
     pkt = packet_new_udp(addr[0], chan['ip_clnt'], chan['port_peer'], chan['port_clnt'], chan['pktid'], data)
-
     # send the response back to client
-    if do_prn_packets:
-        print('---> SEND PEER->CLNT: %s:%d->{lport=%d}->%s:%d' % (chan['ip_peer'], chan['port_peer'], chan['lport'], chan['ip_clnt'], chan['port_clnt']))
     sock_clnt_w.sendto(pkt, (chan['ip_clnt'], chan['port_clnt']))
+    # log
     log_pkt(False, chan['ip_peer'], chan['port_peer'], data)
     if do_prn_packets:
-        print('<--- SEND PEER->CLNT: %s:%d->{lport=%d}->%s:%d' % (chan['ip_peer'], chan['port_peer'], chan['lport'], chan['ip_clnt'], chan['port_clnt']))
+        print('PEER->CLNT: %s:%d->{lport=%d}->%s:%d' % (chan['ip_peer'], chan['port_peer'], chan['lport'], chan['ip_clnt'], chan['port_clnt']))
+    # count
+    cnt_peer_recv = cnt_peer_recv+1
+    chan['cnt_in'] = chan['cnt_in']+1
 
 def on_idle():
     global channels, all_sockets_v, all_sockets_m, free_lports
-    #print("--> idle")
     # delete too old channels and release their sockets
     tm_now = get_tm_ms()
     new_all_sockets_v = []
@@ -390,6 +385,9 @@ def on_idle():
             new_all_sockets_v.append(chan['sock'])
             cnt_lve = cnt_lve+1
     for key in keys_to_delete.keys():
+        chan = channels[key]
+        print('destroyed the channel for %s with port %d (expired after %d sec, cnt-in=%d, cnt-out=%d)'
+              % (key,chan['lport'],opt_socket_expiration_ms/1000, chan['cnt_in'], chan['cnt_out']))
         del channels[key]
     all_sockets_v = new_all_sockets_v
     #print("<-- idle: expired %d sockets, left %d sockets" % (cnt_exp, cnt_lve))

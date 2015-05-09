@@ -241,7 +241,7 @@ def packet_new_udp_headers_for_cksum(pkt):
                  len(pkt)-20))
     return header+pkt[20:]
 
-def checksum_calc_udp_packet(pkt, ip_src, ip_dst):
+def checksum_calc_udp_packet(pkt):
     pkt[26:28] = bytearray(struct.pack("H", 0))
     pkt[26:28] = bytearray(struct.pack("H", socket.htons(checksum(packet_new_udp_headers_for_cksum(pkt)))))
     
@@ -360,7 +360,7 @@ def recv_peer(chan,data,addr):
     # create the complete IP/UDP packet
     chan['pktid'] = chan['pktid']+1 if chan['pktid']<65535 else 1
     pkt = packet_new_udp(addr[0], chan['ip_clnt'], chan['port_peer'], chan['port_clnt'], chan['pktid'], data)
-    checksum_calc_udp_packet(pkt, addr[0], chan['ip_clnt'])
+    checksum_calc_udp_packet(pkt)
     # send the response back to client
     sock_clnt_w.sendto(pkt, (chan['ip_clnt'], chan['port_clnt']))
     # log

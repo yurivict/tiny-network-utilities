@@ -229,7 +229,7 @@ def alloc_lport():
         return 0
 
 def release_lport(lport):
-    free_lports.append(lport)
+    free_lports.insert(0, lport)
 
 def create_peer_socket(lport):
     try_cnt = 0

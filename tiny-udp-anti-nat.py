@@ -17,34 +17,126 @@
 #$ipfw 03057 allow log udp from 1.1.1.0/24 to 1.1.1.1 in via tap1
 #$ipfw 03058 allow log udp from 1.1.1.1 to 1.1.1.0/24 out via tap1
 
-
+import sys, getopt
 import socket
 import struct
 import net_checksums
 
-# arguments
-arg_clnt_divert_ip = "1.1.1.1"
-arg_clnt_divert_port = 3056
-arg_port_old = 53
-arg_port_new = 10053
-
 # missing constants
 socket_IPPROTO_DIVERT=258
+
+
+##
+## Command line arguments and usage
+##
+
+arg_clnt_divert_ip = "1.1.1.1"
+arg_clnt_divert_port = 3056
+do_ip = False
+do_port = False
+arg_ip_old = None
+arg_ip_new = None
+arg_port_old = 0
+arg_port_new = 0
+
+def usage():
+    print('%s -d <divert-port> -i <old-dst-ip>:<new-dst-ip> -p <old-dst-port>:<new-dst-port>' % (sys.argv[0]))
+    sys.exit(2)
+
+def ip_str_to_bytes(ip):
+    #return bytes([hex(int(x)) for x in ip.split('.')])
+    return bytes([int(x) for x in ip.split('.')])
+
+try:
+    opts, args = getopt.getopt(sys.argv[1:], "d:i:p:",["divert=", "ip=","port="])
+except getopt.GetoptError:
+    usage()
+for opt,arg in opts:
+    if opt in ("-d", "--divert"):
+        arg_clnt_divert_port = int(arg)
+    elif opt in ("-i", "--ip"):
+        ip_spec = arg.split(':')
+        if do_ip or len(ip_spec) != 2:
+            usage()
+        arg_ip_old = ip_str_to_bytes(ip_spec[0])
+        arg_ip_new = ip_str_to_bytes(ip_spec[1])
+        do_ip = True
+    elif opt in ("-p", "--port"):
+        port_spec = arg.split(':')
+        if do_port or len(port_spec) != 2:
+            usage()
+        arg_port_old = int(port_spec[0])
+        arg_port_new = int(port_spec[1])
+        do_port = True
+if not do_ip and not do_port:
+    usage()
 
 ##
 ## procedures
 ##
 
+def unpack_ip(pkt, off):
+    return pkt[off:off+4]
+
+def unpack_ip_src(pkt):
+    return unpack_ip(pkt, 12)
+
+def unpack_ip_dst(pkt):
+    return unpack_ip(pkt, 16)
+
+def pack_ip(pkt, off, ip):
+    pkt[off:off+4] = ip
+
+def pack_ip_src(pkt, ip):
+    pack_ip(pkt, 8, ip)
+
+def pack_ip_dst(pkt, ip):
+    pack_ip(pkt, 12, ip)
+
 def unpack_port(pkt, off):
     return socket.ntohs(struct.unpack('H', pkt[off:off+2])[0])
 
+def unpack_port_src(pkt):
+    return unpack_port(pkt, 20)
+
+def unpack_port_dst(pkt):
+    return unpack_port(pkt, 22)
+
 def pack_port(pkt, off, port):
     pkt[off:off+2] = struct.pack('H', socket.htons(port))
+
+def pack_port_src(pkt, port):
+    print('pack_port_src '+str(port))
+    pack_port(pkt, 20, port)
+
+def pack_port_dst(pkt, port):
+    print('pack_port_dst '+str(port))
+    pack_port(pkt, 22, port)
 
 def create_sock_divert(ip,port):
     sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket_IPPROTO_DIVERT)
     sock.bind((ip, port))
     return sock
+
+def is_dir_match(pkt):
+    return (not do_ip or unpack_ip_dst(pkt)==arg_ip_old) \
+        and (not do_port or unpack_port_dst(pkt)==arg_port_old)
+
+def is_rev_match(pkt):
+    return (not do_ip or unpack_ip_src(pkt)==arg_ip_new) \
+        and (not do_port or unpack_port_src(pkt)==arg_port_new)
+
+def update_dir(pkt):
+    if do_ip:
+        pack_ip_dst(pkt, arg_ip_new)
+    if do_port:
+        pack_port_dst(pkt, arg_port_new)
+
+def update_rev(pkt):
+    if do_ip:
+        pack_ip_src(pkt, arg_ip_old)
+    if do_port:
+        pack_port_src(pkt, arg_port_old)
 
 ##
 ## MAIN cycle
@@ -58,16 +150,15 @@ while True:
     pkt = bytearray(pkt)
     print('received addr=%s' % (str(addr)))
     # process
-    pkt_port_src = unpack_port(pkt, 20)
-    pkt_port_dst = unpack_port(pkt, 22)
-    if pkt_port_dst == arg_port_old:
+    if is_dir_match(pkt):
         print('replacing OLD->NEW')
-        pack_port(pkt, 22, arg_port_new)
-    elif pkt_port_src == arg_port_new:
+        update_dir(pkt)
+    elif is_rev_match(pkt):
         print('replacing NEW->OLD')
-        pack_port(pkt, 20, arg_port_old)
+        update_rev(pkt)
     else:
-        print('unknown packet received: port=%d' % (pkt_port_dst))
+        print('unknown packet received: %s:%d -> %s:%d' % (unpack_ip_src(pkt), unpack_port_src(pkt), unpack_ip_dst(pkt), unpack_port_dst(pkt)))
+        print('... dst-ip-old=%s' % (arg_ip_old))
     # recompute checksum
     net_checksums.checksum_calc_udp_packet(pkt)
     # send further

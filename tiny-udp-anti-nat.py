@@ -31,7 +31,7 @@ socket_IPPROTO_DIVERT=258
 ##
 
 arg_clnt_divert_ip = "1.1.1.1"
-arg_clnt_divert_port = 3056
+arg_clnt_divert_port = 0
 do_ip = False
 do_port = False
 arg_ip_old = None
@@ -68,7 +68,7 @@ for opt,arg in opts:
         arg_port_old = int(port_spec[0])
         arg_port_new = int(port_spec[1])
         do_port = True
-if not do_ip and not do_port:
+if arg_clnt_divert_port == 0 or (not do_ip and not do_port):
     usage()
 
 ##

@@ -88,10 +88,10 @@ def pack_ip(pkt, off, ip):
     pkt[off:off+4] = ip
 
 def pack_ip_src(pkt, ip):
-    pack_ip(pkt, 8, ip)
+    pack_ip(pkt, 12, ip)
 
 def pack_ip_dst(pkt, ip):
-    pack_ip(pkt, 12, ip)
+    pack_ip(pkt, 16, ip)
 
 def unpack_port(pkt, off):
     return socket.ntohs(struct.unpack('H', pkt[off:off+2])[0])
@@ -106,11 +106,9 @@ def pack_port(pkt, off, port):
     pkt[off:off+2] = struct.pack('H', socket.htons(port))
 
 def pack_port_src(pkt, port):
-    print('pack_port_src '+str(port))
     pack_port(pkt, 20, port)
 
 def pack_port_dst(pkt, port):
-    print('pack_port_dst '+str(port))
     pack_port(pkt, 22, port)
 
 def create_sock_divert(ip,port):

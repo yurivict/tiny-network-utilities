@@ -8,7 +8,7 @@
 import os, pwd, grp, sys
 import signal
 
-def drop_privileges(uid_name, gid_name, files):
+def drop_privileges3(uid_name, gid_name, files):
     # get the uid/gid from the name
     new_uid = pwd.getpwnam(uid_name).pw_uid
     new_gid = grp.getgrnam(gid_name).gr_gid
@@ -25,7 +25,7 @@ def drop_privileges(uid_name, gid_name, files):
     os.umask(0o077)
 
 def drop_privileges(files):
-    drop_privileges('nobody', 'nogroup', files)
+    drop_privileges3('nobody', 'nogroup', files)
 
 def do_daemonize(pid_file):
     pid = os.fork()

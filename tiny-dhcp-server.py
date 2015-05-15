@@ -44,13 +44,13 @@ except getopt.GetoptError:
     usage()
 for opt,arg in opts:
     if opt in ("-l", "--log"):
-        arg_log_file=arg
+        arg_log_file = arg
     if opt in ("-p", "--pid"):
-        arg_pid_file=arg
+        arg_pid_file = arg
     if opt in ("-d", "--daemonize"):
-        arg_daemonize=True
+        arg_daemonize = True
     if opt in ("-u", "--unprivileged"):
-        arg_unprivileged=True
+        arg_unprivileged = True
 
 ## HDCP/BOOTP format
 BOOTREQUEST = 1
@@ -103,10 +103,11 @@ def log_discard(what):
 ## MAIN
 ##
 
+## permissions
 if not os.geteuid()==0:
     sys.exit("Only root can run tiny-dhcp-server")
 
-## command line arguments
+## command line arguments: interfaces
 if len(sys.argv) < 2:
     sys.exit('Usage: '+sys.argv[0]+' <interface1> {, <interface2> ...}')
 
@@ -136,12 +137,10 @@ sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 sock.setsockopt(socket.IPPROTO_IP, socket_IP_RECVIF, 1)
 sock.bind(('0.0.0.0', 67))
 
-## daemonize
+## daemonize and write pid file
 if arg_daemonize:
-    tu.do_daemonize()
-
-## pid file
-if arg_pid_file is not None:
+    tu.do_daemonize(arg_pid_file)
+elif arg_pid_file is not None:
     tu.write_pid_file(arg_pid_file)
 
 ## lose privileges if requested

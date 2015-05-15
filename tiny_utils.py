@@ -8,7 +8,7 @@
 import os, pwd, grp, sys
 import signal
 
-def drop_privileges2(uid_name, gid_name, files):
+def drop_privileges(uid_name, gid_name, files):
     # get the uid/gid from the name
     new_uid = pwd.getpwnam(uid_name).pw_uid
     new_gid = grp.getgrnam(gid_name).gr_gid
@@ -25,9 +25,9 @@ def drop_privileges2(uid_name, gid_name, files):
     os.umask(0o077)
 
 def drop_privileges(files):
-    drop_privileges2('nobody', 'nogroup', files)
+    drop_privileges('nobody', 'nogroup', files)
 
-def do_daemonize():
+def do_daemonize(pid_file):
     pid = os.fork()
     if (pid > 0):
         sys.exit(0); # exit first parent
@@ -37,13 +37,18 @@ def do_daemonize():
 
     pid = os.fork()
     if pid > 0:
+        if pid_file is not None:
+            write_pid_file2(pid_file, pid)
         sys.exit(0); # exit from second parent
 
-def write_pid_file(f):
-    pid = str(os.getpid())
+def write_pid_file2(f, pid):
+    p = str(pid)
     f = open(f, 'w')
-    f.write(pid)
+    f.write(p)
     f.close()
+
+def write_pid_file(f):
+    write_pid_file2(f, os.getpid())
 
 def exit_gracefully(signum, frame, original_sigint, log):
     log('exiting on signal %d' %signum)

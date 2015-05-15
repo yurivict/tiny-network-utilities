@@ -16,20 +16,43 @@
 ##      DHCP server
 ##
 
-import sys
-import os, pwd, grp
+import sys, os, getopt
 import socket
 import struct
 import codecs
 import datetime
 import signal
 import netifaces   # from port net/py-netifaces
-
-# some options
-daemonize=True
-unprivileged=True
+import tiny_utils as tu
 
 socket_IP_RECVIF=20 # missing in python3.4
+
+##
+## Command line arguments and usage
+##
+
+arg_log_file=None
+arg_pid_file=None
+arg_daemonize=False
+arg_unprivileged=False
+
+def usage():
+    print('%s {-l <log-file>} {-p <pid-file>} {-d} {-u}' % (sys.argv[0]))
+    sys.exit(2)
+
+try:
+    opts, args = getopt.getopt(sys.argv[1:], "l:p:du",["log=","pid=","daemonize","unprivileged"])
+except getopt.GetoptError:
+    usage()
+for opt,arg in opts:
+    if opt in ("-l", "--log"):
+        arg_log_file=arg
+    if opt in ("-p", "--pid"):
+        arg_pid_file=arg
+    if opt in ("-d", "--daemonize"):
+        arg_daemonize=True
+    if opt in ("-u", "--unprivileged"):
+        arg_unprivileged=True
 
 ## HDCP/BOOTP format
 BOOTREQUEST = 1
@@ -66,13 +89,13 @@ def logfile():
 def tm():
     return datetime.datetime.now().strftime('[%Y-%m-%d %H:%M:%S]')
 def log(s):
-    if daemonize:
+    if arg_daemonize:
         with open(logfile(), "a") as myfile:
             myfile.write('%s %s\n' % (tm(), s))
     else:
         print('%s %s' % (tm(), s))
 def log_discard(what):
-    if daemonize:
+    if arg_daemonize:
         with open(logfile(), "a") as myfile:
             myfile.write('%s discarded %s\n' % (tm(), what))
     else:
@@ -105,7 +128,7 @@ signal.signal(signal.SIGHUP, signal.SIG_IGN)
 
 ## initialize structure per iface
 ifaces = {}
-for iface in sys.argv[1:]:
+for iface in args:
     ifaces[iface] = {}
 
 ## determine server IP and netmask
@@ -126,36 +149,12 @@ sock.bind(('0.0.0.0', 67))
 
 ## lose privileges if requested
 
-def drop_privileges(uid_name, gid_name):
-    # get the uid/gid from the name
-    new_uid = pwd.getpwnam(uid_name).pw_uid
-    new_gid = grp.getgrnam(gid_name).gr_gid
-    # set log file permissions so we can still write it
-    os.chown(logfile(), new_uid, new_gid)
-    os.chmod(logfile(), 0o664)
-    # remove group privileges
-    os.setgroups([])
-    # set uid/gid
-    os.setgid(new_gid)
-    os.setuid(new_uid)
-    # set the conservative umask
-    os.umask(0o077)
-
-if unprivileged:
-    drop_privileges('nobody', 'nogroup')
+if arg_unprivileged:
+    tu.drop_privileges([logfile()])
 
 ## daemonize
-if daemonize:
-    pid = os.fork()
-    if (pid > 0):
-        sys.exit(0); # exit first parent
-    os.chdir("/")
-    os.setsid()
-    os.umask(0)
-
-    pid = os.fork()
-    if pid > 0:
-        sys.exit(0); # exit from second parent
+if arg_daemonize:
+    tu.do_daemonize()
 
 ## read/reply loop
 

@@ -22,8 +22,7 @@
 #${fwcmd} add 03018 allow log udp from any to 1.1.1.0/24 out via tap1
 
 
-import sys, getopt
-import os, pwd, grp
+import sys, os, getopt
 import socket,select
 import array
 import struct
@@ -35,7 +34,8 @@ import time
 import atexit
 import hexdump
 from timeit import default_timer as timer
-import net_checksums
+import net_checksums as nc
+import tiny_utils as tu
 
 ##
 ## some options
@@ -188,7 +188,7 @@ def packet_new_ip_headers(proto, ip_src, ip_dst, pktid, remlen):
                 cksum,
                 socket.inet_aton(ip_src),
                 socket.inet_aton(ip_dst)))
-    ip_header[10:12] = bytearray(struct.pack("H", socket.htons(net_checksums.checksum(ip_header))))
+    ip_header[10:12] = bytearray(struct.pack("H", socket.htons(nc.checksum(ip_header))))
     return ip_header
 
 def packet_new_udp_headers(port_src, port_dst, remlen):
@@ -317,7 +317,7 @@ def recv_peer(chan,data,addr):
     # create the complete IP/UDP packet
     chan['pktid'] = chan['pktid']+1 if chan['pktid']<65535 else 1
     pkt = packet_new_udp(addr[0], chan['ip_clnt'], chan['port_peer'], chan['port_clnt'], chan['pktid'], data)
-    net_checksums.checksum_calc_udp_packet(pkt)
+    nc.checksum_calc_udp_packet(pkt)
     # send the response back to client
     sock_clnt_w.sendto(pkt, (chan['ip_clnt'], chan['port_clnt']))
     # log

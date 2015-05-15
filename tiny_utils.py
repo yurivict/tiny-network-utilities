@@ -6,6 +6,7 @@
 ## This is the module that recomputes IP and UDP packet checksums
 
 import os, pwd, grp, sys
+import signal
 
 def drop_privileges2(uid_name, gid_name, files):
     # get the uid/gid from the name
@@ -43,4 +44,17 @@ def write_pid_file(f):
     f = open(f, 'w')
     f.write(pid)
     f.close()
+
+def exit_gracefully(signum, frame, original_sigint, log):
+    log('exiting on signal %d' %signum)
+    sys.exit(1)
+
+def handle_signals(log):
+    original_sigint = signal.getsignal(signal.SIGINT)
+    bound_exit_gracefully = lambda signum, frame: exit_gracefully(signum, frame, original_sigint, log)
+    signal.signal(signal.SIGINT, bound_exit_gracefully)
+    signal.signal(signal.SIGTERM, bound_exit_gracefully)
+    signal.signal(signal.SIGINT, bound_exit_gracefully)
+    signal.signal(signal.SIGALRM, bound_exit_gracefully)
+    signal.signal(signal.SIGHUP, signal.SIG_IGN)
 

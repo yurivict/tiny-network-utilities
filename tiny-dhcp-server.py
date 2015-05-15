@@ -20,7 +20,6 @@ import socket
 import struct
 import codecs
 import datetime
-import signal
 import netifaces   # from port net/py-netifaces
 import tiny_utils as tu
 
@@ -114,16 +113,7 @@ if len(sys.argv) < 2:
 log('starting')
 
 ## signals
-def exit_gracefully(signum, frame, original_sigint):
-    log('exiting on signal %d' %signum)
-    sys.exit(1)
-original_sigint = signal.getsignal(signal.SIGINT)
-bound_exit_gracefully = lambda signum, frame: exit_gracefully(signum, frame, original_sigint)
-signal.signal(signal.SIGINT, bound_exit_gracefully)
-signal.signal(signal.SIGTERM, bound_exit_gracefully)
-signal.signal(signal.SIGINT, bound_exit_gracefully)
-signal.signal(signal.SIGALRM, bound_exit_gracefully)
-signal.signal(signal.SIGHUP, signal.SIG_IGN)
+tu.handle_signals(lambda msg: log(msg))
 
 ## initialize structure per iface
 ifaces = {}

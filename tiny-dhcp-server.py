@@ -33,13 +33,14 @@ arg_log_file=None
 arg_pid_file=None
 arg_daemonize=False
 arg_unprivileged=False
+arg_unprivileged_ug=None
 
 def usage():
-    print('%s {-l <log-file>} {-p <pid-file>} {-d} {-u} iface1 {iface2 {...}}' % (sys.argv[0]))
+    print('%s {-l <log-file>} {-p <pid-file>} {-d} {-U usr:grp|-u} iface1 {iface2 {...}}' % (sys.argv[0]))
     sys.exit(2)
 
 try:
-    opts, args = getopt.getopt(sys.argv[1:], "l:p:du",["log=","pid=","daemonize","unprivileged"])
+    opts, args = getopt.getopt(sys.argv[1:], "l:p:duU:",["log=","pid=","daemonize","unprivileged","unprivileged2="])
 except getopt.GetoptError:
     usage()
 for opt,arg in opts:
@@ -51,6 +52,9 @@ for opt,arg in opts:
         arg_daemonize = True
     if opt in ("-u", "--unprivileged"):
         arg_unprivileged = True
+    if opt in ("-U", "--unprivileged2"):
+        arg_unprivileged = True
+        arg_unprivileged_ug = split(':')
 
 ## HDCP/BOOTP format
 BOOTREQUEST = 1
@@ -122,7 +126,6 @@ for iface in args:
     ifaces[iface] = {}
 
 ## determine server IP and netmask
-
 for iface,s in ifaces.items():
     s['server']           = socket.inet_aton(netifaces.ifaddresses(iface)[netifaces.AF_INET][0]['addr'])
     s['server_broadcast'] = netifaces.ifaddresses(iface)[netifaces.AF_INET][0]['broadcast']
@@ -145,7 +148,10 @@ elif arg_pid_file is not None:
 
 ## lose privileges if requested
 if arg_unprivileged:
-    tu.drop_privileges([logfile()])
+    if arg_unprivileged_ug is None:
+        tu.drop_privileges([logfile(),arg_pid_file])
+    else:
+        tu.drop_privileges3(arg_unprivileged_ug[0], arg_unprivileged_ug[1], [logfile(),arg_pid_file])
 
 ## read/reply loop
 

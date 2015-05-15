@@ -7,6 +7,7 @@
 
 import os, pwd, grp, sys
 import signal
+import atexit
 
 def drop_privileges3(uid_name, gid_name, files):
     # get the uid/gid from the name
@@ -14,8 +15,9 @@ def drop_privileges3(uid_name, gid_name, files):
     new_gid = grp.getgrnam(gid_name).gr_gid
     # set log file permissions so we can still write it
     for f in files:
-        os.chown(f, new_uid, new_gid)
-        os.chmod(f, 0o664)
+        if f is not None:
+            os.chown(f, new_uid, new_gid)
+            os.chmod(f, 0o664)
     # remove group privileges
     os.setgroups([])
     # set uid/gid
@@ -46,6 +48,7 @@ def write_pid_file2(f, pid):
     f = open(f, 'w')
     f.write(p)
     f.close()
+    atexit.register(os.remove, f)
 
 def write_pid_file(f):
     write_pid_file2(f, os.getpid())

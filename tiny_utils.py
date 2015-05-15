@@ -37,18 +37,23 @@ def do_daemonize(pid_file):
     os.setsid()
     os.umask(0)
 
+    pid_init = os.getpid()
     pid = os.fork()
     if pid > 0:
+        # initial process
         if pid_file is not None:
             write_pid_file2(pid_file, pid)
         sys.exit(0); # exit from second parent
+    # wait for the initial process to finish so that pid file is written
+    os.waitpid(pid_init, 0)
+    atexit.register(os.remove, pid_file)
 
 def write_pid_file2(fname, pid):
     p = str(pid)
     f = open(fname, 'w')
     f.write(p)
     f.close()
-    atexit.register(os.remove, fname)
+    # it should always be the matching atexit.register(os.remove)
 
 def write_pid_file(f):
     write_pid_file2(f, os.getpid())

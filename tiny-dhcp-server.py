@@ -146,6 +146,7 @@ if arg_daemonize:
     tu.do_daemonize(arg_pid_file)
 elif arg_pid_file is not None:
     tu.write_pid_file(arg_pid_file)
+    atexit.register(os.remove, arg_pid_file)
 
 ## lose privileges if requested
 if arg_unprivileged:

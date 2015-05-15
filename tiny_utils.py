@@ -43,12 +43,12 @@ def do_daemonize(pid_file):
             write_pid_file2(pid_file, pid)
         sys.exit(0); # exit from second parent
 
-def write_pid_file2(f, pid):
+def write_pid_file2(fname, pid):
     p = str(pid)
-    f = open(f, 'w')
+    f = open(fname, 'w')
     f.write(p)
     f.close()
-    atexit.register(os.remove, f)
+    atexit.register(os.remove, fname)
 
 def write_pid_file(f):
     write_pid_file2(f, os.getpid())

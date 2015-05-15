@@ -55,7 +55,7 @@ for opt,arg in opts:
         arg_unprivileged = True
     if opt in ("-U", "--unprivileged2"):
         arg_unprivileged = True
-        arg_unprivileged_ug = split(':')
+        arg_unprivileged_ug = arg.split(':')
 
 ## HDCP/BOOTP format
 BOOTREQUEST = 1

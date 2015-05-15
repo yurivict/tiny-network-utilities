@@ -19,6 +19,7 @@ import sys, os, getopt
 import socket
 import struct
 import codecs
+import string
 import datetime
 import netifaces   # from port net/py-netifaces
 import tiny_utils as tu

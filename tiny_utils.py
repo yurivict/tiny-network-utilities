@@ -37,3 +37,10 @@ def do_daemonize():
     pid = os.fork()
     if pid > 0:
         sys.exit(0); # exit from second parent
+
+def write_pid_file(f):
+    pid = str(os.getpid())
+    f = open(f, 'w')
+    f.write(pid)
+    f.close()
+

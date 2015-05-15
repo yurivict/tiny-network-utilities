@@ -12,8 +12,7 @@
 ##
 ## NOTE FreeBSD doesn't allow multiple DHCP listening sockets, so only one
 ##      instance of this program can run at a time, and it handles all
-##      needed interfaces, and it probably can't be combined with another
-##      DHCP server
+##      needed interfaces. It probably can't be combined with another DHCP server.
 ##
 
 import sys, os, getopt
@@ -37,7 +36,7 @@ arg_daemonize=False
 arg_unprivileged=False
 
 def usage():
-    print('%s {-l <log-file>} {-p <pid-file>} {-d} {-u}' % (sys.argv[0]))
+    print('%s {-l <log-file>} {-p <pid-file>} {-d} {-u} iface1 {iface2 {...}}' % (sys.argv[0]))
     sys.exit(2)
 
 try:
@@ -85,7 +84,7 @@ DHCP_SERVER = 54
 DHCP_END = 255
 
 def logfile():
-    return '/var/log/tiny-dhcp-server.log'
+    return arg_log_file if arg_log_file is not None else '/var/log/tiny-dhcp-server.log'
 def tm():
     return datetime.datetime.now().strftime('[%Y-%m-%d %H:%M:%S]')
 def log(s):
@@ -147,14 +146,17 @@ sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 sock.setsockopt(socket.IPPROTO_IP, socket_IP_RECVIF, 1)
 sock.bind(('0.0.0.0', 67))
 
-## lose privileges if requested
-
-if arg_unprivileged:
-    tu.drop_privileges([logfile()])
-
 ## daemonize
 if arg_daemonize:
     tu.do_daemonize()
+
+## pid file
+if arg_pid_file is not None:
+    tu.write_pid_file(arg_pid_file)
+
+## lose privileges if requested
+if arg_unprivileged:
+    tu.drop_privileges([logfile()])
 
 ## read/reply loop
 

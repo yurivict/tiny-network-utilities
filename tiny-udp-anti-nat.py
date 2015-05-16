@@ -39,7 +39,7 @@ arg_log_file=None
 arg_pid_file=None
 arg_unprivileged=False
 arg_unprivileged_ug=None
-arg_clnt_divert_ip = "1.1.1.1"
+arg_clnt_divert_ip = None
 arg_clnt_divert_port = 0
 arg_ip_old = None
 arg_ip_new = None
@@ -47,7 +47,7 @@ arg_port_old = 0
 arg_port_new = 0
 
 def usage():
-    print('%s -d {-l <log-file>} {-p <pid-file>} {-U usr:grp|-u} -D <divert-port> -I <old-dst-ip>:<new-dst-ip> -P <old-dst-port>:<new-dst-port>' % (sys.argv[0]))
+    print('%s -d {-l <log-file>} {-p <pid-file>} {-U usr:grp|-u} -D <divert-bind-ip>:<divert-port> -I <old-dst-ip>:<new-dst-ip> -P <old-dst-port>:<new-dst-port>' % (sys.argv[0]))
     sys.exit(2)
 
 def ip_str_to_bytes(ip):
@@ -71,7 +71,9 @@ for opt,arg in opts:
         arg_unprivileged = True
         arg_unprivileged_ug = arg.split(':')
     elif opt in ("-D", "--divert"):
-        arg_clnt_divert_port = int(arg)
+        divert_pair = arg.split(':')
+        arg_clnt_divert_ip = divert_pair[0]
+        arg_clnt_divert_port = int(divert_pair[1])
     elif opt in ("-I", "--ip"):
         ip_spec = arg.split(':')
         if do_ip or len(ip_spec) != 2:
@@ -86,7 +88,7 @@ for opt,arg in opts:
         arg_port_old = int(port_spec[0])
         arg_port_new = int(port_spec[1])
         do_port = True
-if arg_clnt_divert_port == 0 or (not do_ip and not do_port):
+if arg_clnt_divert_port == 0 or (not do_ip and not do_port) or arg_clnt_divert_ip is None:
     usage()
 
 ##
@@ -95,6 +97,10 @@ if arg_clnt_divert_port == 0 or (not do_ip and not do_port):
 
 def logfile():
     return arg_log_file if arg_log_file is not None else '/var/log/tiny-udp-anti-nat.log'
+
+def log(s):
+    with open(logfile(), "a") as myfile:
+        myfile.write('%s %s\n' % (tm_log(), s))
 
 def unpack_ip(pkt, off):
     return pkt[off:off+4]
@@ -160,6 +166,16 @@ def update_rev(pkt):
 ##
 ## MAIN cycle
 ##
+
+## permissions
+if not os.geteuid()==0:
+    sys.exit("Only root can run tiny-udp-anti-nat")
+
+## starting
+log('starting')
+
+## signals
+tu.handle_signals(lambda msg: log(msg))
 
 ## create socket
 sock = create_sock_divert(arg_clnt_divert_ip, arg_clnt_divert_port)

@@ -57,6 +57,9 @@ for opt,arg in opts:
     elif opt in ("-U", "--unprivileged2"):
         arg_unprivileged = True
         arg_unprivileged_ug = arg.split(':')
+if len(args) < 1:
+    usage()
+
 
 ## HDCP/BOOTP format
 BOOTREQUEST = 1
@@ -90,14 +93,9 @@ DHCP_END = 255
 
 def logfile():
     return arg_log_file if arg_log_file is not None else '/var/log/tiny-dhcp-server.log'
-def tm():
-    return datetime.datetime.now().strftime('[%Y-%m-%d %H:%M:%S]')
 def log(s):
-    if arg_daemonize:
-        with open(logfile(), "a") as myfile:
-            myfile.write('%s %s\n' % (tm(), s))
-    else:
-        print('%s %s' % (tm(), s))
+    with open(logfile(), "a") as myfile:
+        myfile.write('%s %s\n' % (tm_log(), s))
 def log_discard(what):
     if arg_daemonize:
         with open(logfile(), "a") as myfile:
@@ -113,10 +111,7 @@ def log_discard(what):
 if not os.geteuid()==0:
     sys.exit("Only root can run tiny-dhcp-server")
 
-## command line arguments: interfaces
-if len(sys.argv) < 2:
-    sys.exit('Usage: '+sys.argv[0]+' <interface1> {, <interface2> ...}')
-
+## starting
 log('starting')
 
 ## signals

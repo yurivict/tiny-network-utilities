@@ -3,12 +3,15 @@
 # Copyright (C) 2015 by Yuri Victorovich. All rights reserved.
 # This code is licensed under BSD license.
 
-## This is the module that recomputes IP and UDP packet checksums
+## This module contains various common routibes of tiny-network-utilities package
 
 import os, pwd, grp, sys
 import errno
 import signal
 import atexit
+
+def tm_log():
+    return datetime.datetime.now().strftime('[%Y-%m-%d %H:%M:%S %Z]')
 
 def drop_privileges3(uid_name, gid_name, files):
     # get the uid/gid from the name

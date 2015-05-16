@@ -26,7 +26,6 @@ import sys, os, getopt
 import socket,select
 import array
 import struct
-import datetime
 import random
 import string
 import signal

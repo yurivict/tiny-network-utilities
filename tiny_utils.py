@@ -9,6 +9,7 @@ import os, pwd, grp, sys
 import errno
 import signal
 import atexit
+import datetime
 
 def tm_log():
     return datetime.datetime.now().strftime('[%Y-%m-%d %H:%M:%S %Z]')

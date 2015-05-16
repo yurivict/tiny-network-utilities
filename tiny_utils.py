@@ -6,6 +6,7 @@
 ## This is the module that recomputes IP and UDP packet checksums
 
 import os, pwd, grp, sys
+import errno
 import signal
 import atexit
 
@@ -45,7 +46,13 @@ def do_daemonize(pid_file):
             write_pid_file2(pid_file, pid)
         sys.exit(0); # exit from second parent
     # wait for the initial process to finish so that pid file is written
-    os.waitpid(pid_init, 0)
+    try:
+        os.waitpid(pid_init, 0)
+    except OSError as err:
+        # ECHILD means that initial process has ended
+        if err.errno != errno.ECHILD:
+            raise
+    # pig_file has to be deleted
     atexit.register(os.remove, pid_file)
 
 def write_pid_file2(fname, pid):

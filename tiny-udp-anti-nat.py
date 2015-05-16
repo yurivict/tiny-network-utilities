@@ -20,7 +20,8 @@
 import sys, getopt
 import socket
 import struct
-import net_checksums
+import net_checksums as nc
+import tiny_utils as tu
 
 # missing constants
 socket_IPPROTO_DIVERT=258
@@ -30,17 +31,23 @@ socket_IPPROTO_DIVERT=258
 ## Command line arguments and usage
 ##
 
-arg_clnt_divert_ip = "1.1.1.1"
-arg_clnt_divert_port = 0
 do_ip = False
 do_port = False
+
+arg_daemonize=False
+arg_log_file=None
+arg_pid_file=None
+arg_unprivileged=False
+arg_unprivileged_ug=None
+arg_clnt_divert_ip = "1.1.1.1"
+arg_clnt_divert_port = 0
 arg_ip_old = None
 arg_ip_new = None
 arg_port_old = 0
 arg_port_new = 0
 
 def usage():
-    print('%s -d <divert-port> -i <old-dst-ip>:<new-dst-ip> -p <old-dst-port>:<new-dst-port>' % (sys.argv[0]))
+    print('%s -d {-l <log-file>} {-p <pid-file>} {-U usr:grp|-u} -D <divert-port> -I <old-dst-ip>:<new-dst-ip> -P <old-dst-port>:<new-dst-port>' % (sys.argv[0]))
     sys.exit(2)
 
 def ip_str_to_bytes(ip):
@@ -48,20 +55,31 @@ def ip_str_to_bytes(ip):
     return bytes([int(x) for x in ip.split('.')])
 
 try:
-    opts, args = getopt.getopt(sys.argv[1:], "d:i:p:",["divert=", "ip=","port="])
+    opts, args = getopt.getopt(sys.argv[1:], "dl:p:uU:D:I:P:",["daemonize","log=","pid=","unprivileged","unprivileged2=","divert=", "ip=","port="])
 except getopt.GetoptError:
     usage()
 for opt,arg in opts:
-    if opt in ("-d", "--divert"):
+    if opt in ("-d", "--daemonize"):
+        arg_daemonize = True
+    elif opt in ("-l", "--log"):
+        arg_log_file = arg
+    elif opt in ("-p", "--pid"):
+        arg_pid_file = arg
+    elif opt in ("-u", "--unprivileged"):
+        arg_unprivileged = True
+    elif opt in ("-U", "--unprivileged2"):
+        arg_unprivileged = True
+        arg_unprivileged_ug = arg.split(':')
+    elif opt in ("-D", "--divert"):
         arg_clnt_divert_port = int(arg)
-    elif opt in ("-i", "--ip"):
+    elif opt in ("-I", "--ip"):
         ip_spec = arg.split(':')
         if do_ip or len(ip_spec) != 2:
             usage()
         arg_ip_old = ip_str_to_bytes(ip_spec[0])
         arg_ip_new = ip_str_to_bytes(ip_spec[1])
         do_ip = True
-    elif opt in ("-p", "--port"):
+    elif opt in ("-P", "--port"):
         port_spec = arg.split(':')
         if do_port or len(port_spec) != 2:
             usage()
@@ -74,6 +92,9 @@ if arg_clnt_divert_port == 0 or (not do_ip and not do_port):
 ##
 ## procedures
 ##
+
+def logfile():
+    return arg_log_file if arg_log_file is not None else '/var/log/tiny-udp-anti-nat.log'
 
 def unpack_ip(pkt, off):
     return pkt[off:off+4]
@@ -140,7 +161,11 @@ def update_rev(pkt):
 ## MAIN cycle
 ##
 
+## create socket
 sock = create_sock_divert(arg_clnt_divert_ip, arg_clnt_divert_port)
+
+## daemonize, write pid file, lose privileges
+tu.process_common_args(arg_daemonize, arg_pid_file, arg_unprivileged, arg_unprivileged_ug, logfile())
 
 # main event loop
 while True:
@@ -158,7 +183,7 @@ while True:
         print('unknown packet received: %s:%d -> %s:%d' % (unpack_ip_src(pkt), unpack_port_src(pkt), unpack_ip_dst(pkt), unpack_port_dst(pkt)))
         print('... dst-ip-old=%s' % (arg_ip_old))
     # recompute checksum
-    net_checksums.checksum_calc_udp_packet(pkt)
+    nc.checksum_calc_udp_packet(pkt)
     # send further
     sock.sendto(pkt, addr)
 

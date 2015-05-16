@@ -24,36 +24,37 @@ import datetime
 import netifaces   # from port net/py-netifaces
 import tiny_utils as tu
 
-socket_IP_RECVIF=20 # missing in python3.4
+# missing constants
+socket_IP_RECVIF=20
 
 ##
 ## Command line arguments and usage
 ##
 
+arg_daemonize=False
 arg_log_file=None
 arg_pid_file=None
-arg_daemonize=False
 arg_unprivileged=False
 arg_unprivileged_ug=None
 
 def usage():
-    print('%s {-l <log-file>} {-p <pid-file>} {-d} {-U usr:grp|-u} iface1 {iface2 {...}}' % (sys.argv[0]))
+    print('%s -d {-l <log-file>} {-p <pid-file>} {-U usr:grp|-u} iface1 {iface2 {...}}' % (sys.argv[0]))
     sys.exit(2)
 
 try:
-    opts, args = getopt.getopt(sys.argv[1:], "l:p:duU:",["log=","pid=","daemonize","unprivileged","unprivileged2="])
+    opts, args = getopt.getopt(sys.argv[1:], "dl:p:uU:",["daemonize","log=","pid=","unprivileged","unprivileged2="])
 except getopt.GetoptError:
     usage()
 for opt,arg in opts:
-    if opt in ("-l", "--log"):
-        arg_log_file = arg
-    if opt in ("-p", "--pid"):
-        arg_pid_file = arg
     if opt in ("-d", "--daemonize"):
         arg_daemonize = True
-    if opt in ("-u", "--unprivileged"):
+    elif opt in ("-l", "--log"):
+        arg_log_file = arg
+    elif opt in ("-p", "--pid"):
+        arg_pid_file = arg
+    elif opt in ("-u", "--unprivileged"):
         arg_unprivileged = True
-    if opt in ("-U", "--unprivileged2"):
+    elif opt in ("-U", "--unprivileged2"):
         arg_unprivileged = True
         arg_unprivileged_ug = arg.split(':')
 
@@ -141,19 +142,8 @@ sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 sock.setsockopt(socket.IPPROTO_IP, socket_IP_RECVIF, 1)
 sock.bind(('0.0.0.0', 67))
 
-## daemonize and write pid file
-if arg_daemonize:
-    tu.do_daemonize(arg_pid_file)
-elif arg_pid_file is not None:
-    tu.write_pid_file(arg_pid_file)
-    atexit.register(os.remove, arg_pid_file)
-
-## lose privileges if requested
-if arg_unprivileged:
-    if arg_unprivileged_ug is None:
-        tu.drop_privileges([logfile(),arg_pid_file])
-    else:
-        tu.drop_privileges3(arg_unprivileged_ug[0], arg_unprivileged_ug[1], [logfile(),arg_pid_file])
+## daemonize, write pid file, lose privileges
+tu.process_common_args(arg_daemonize, arg_pid_file, arg_unprivileged, arg_unprivileged_ug, logfile())
 
 ## read/reply loop
 

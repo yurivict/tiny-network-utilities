@@ -78,3 +78,19 @@ def handle_signals(log):
     signal.signal(signal.SIGALRM, bound_exit_gracefully)
     signal.signal(signal.SIGHUP, signal.SIG_IGN)
 
+# common argument processing to avoid code repeat
+def process_common_args(arg_daemonize, arg_pid_file, arg_unprivileged, arg_unprivileged_ug, log_file):
+    # daemonize and write pid file
+    if arg_daemonize:
+        do_daemonize(arg_pid_file)
+    elif arg_pid_file is not None:
+        write_pid_file(arg_pid_file)
+        atexit.register(os.remove, arg_pid_file)
+
+    # lose privileges if requested
+    if arg_unprivileged:
+        if arg_unprivileged_ug is None:
+            drop_privileges([log_file,arg_pid_file])
+        else:
+            drop_privileges3(arg_unprivileged_ug[0], arg_unprivileged_ug[1], [log_file,arg_pid_file])
+

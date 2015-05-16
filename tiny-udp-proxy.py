@@ -135,15 +135,13 @@ def logfile():
     return '/var/log/tiny-udp-proxy.log'
 def logfile_pkt():
     return '/var/log/tiny-udp-proxy-pkts.log'
-def tm_log():
-    return datetime.datetime.now().strftime('[%Y-%m-%d %H:%M:%S]')
 def tm_ms():
     global timer_process_start
     return '%0.3f' % (timer() - timer_process_start)
 def log(s):
     print("LOG %s" % (s))
     with open(logfile(), "a") as myfile:
-        myfile.write('%s %s %s\n' % (tm_ms(), tm_log(), s))
+        myfile.write('%s %s %s\n' % (tm_ms(), tu.tm_log(), s))
 def log_pkt(is_req, ip, port, data):
     if do_log_packets:
         with open(logfile_pkt(), "a") as myfile:
@@ -155,7 +153,7 @@ def log_pkt(is_req, ip, port, data):
 def log_discard(s):
     print("DISCARDED %s" % (s))
     with open(logfile(), "a") as myfile:
-        myfile.write('%s packet discarded: %s %s\n' % (tm_ms(), tm_log(), s))
+        myfile.write('%s packet discarded: %s %s\n' % (tm_ms(), tu.tm_log(), s))
 
 ###
 ### BEGIN Packet generator

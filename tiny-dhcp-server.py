@@ -95,7 +95,7 @@ def logfile():
     return arg_log_file if arg_log_file is not None else '/var/log/tiny-dhcp-server.log'
 def log(s):
     with open(logfile(), "a") as myfile:
-        myfile.write('%s %s\n' % (tm_log(), s))
+        myfile.write('%s %s\n' % (tu.tm_log(), s))
 def log_discard(what):
     if arg_daemonize:
         with open(logfile(), "a") as myfile:

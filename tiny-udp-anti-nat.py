@@ -100,7 +100,7 @@ def logfile():
 
 def log(s):
     with open(logfile(), "a") as myfile:
-        myfile.write('%s %s\n' % (tm_log(), s))
+        myfile.write('%s %s\n' % (tu.tm_log(), s))
 
 def unpack_ip(pkt, off):
     return pkt[off:off+4]

@@ -172,7 +172,7 @@ if not os.geteuid()==0:
     sys.exit("Only root can run tiny-udp-anti-nat")
 
 ## starting
-log('starting')
+log('starting (divert-ip=%s, divert-port=%s)' % (arg_clnt_divert_ip, arg_clnt_divert_port))
 
 ## signals
 tu.handle_signals(lambda msg: log(msg))
@@ -187,17 +187,16 @@ tu.process_common_args(arg_daemonize, arg_pid_file, arg_unprivileged, arg_unpriv
 while True:
     (pkt, addr) = sock.recvfrom(64000, 1024)
     pkt = bytearray(pkt)
-    print('received addr=%s' % (str(addr)))
     # process
     if is_dir_match(pkt):
-        print('replacing OLD->NEW')
+        #print('replacing OLD->NEW')
         update_dir(pkt)
     elif is_rev_match(pkt):
-        print('replacing NEW->OLD')
+        #print('replacing NEW->OLD')
         update_rev(pkt)
     else:
-        print('unknown packet received: %s:%d -> %s:%d' % (unpack_ip_src(pkt), unpack_port_src(pkt), unpack_ip_dst(pkt), unpack_port_dst(pkt)))
-        print('... dst-ip-old=%s' % (arg_ip_old))
+        log('unknown packet received: %s:%d -> %s:%d' % (unpack_ip_src(pkt), unpack_port_src(pkt), unpack_ip_dst(pkt), unpack_port_dst(pkt)))
+        log('... dst-ip-old=%s' % (arg_ip_old))
     # recompute checksum
     nc.checksum_calc_udp_packet(pkt)
     # send further

@@ -17,7 +17,7 @@
 #$ipfw 03057 allow log udp from 1.1.1.0/24 to 1.1.1.1 dst-port 10053 in via tap1
 #$ipfw 03058 allow log udp from 1.1.1.1 to 1.1.1.0/24 src-port 53 out via tap1
 
-import sys, getopt
+import sys, os, getopt
 import socket
 import struct
 import net_checksums as nc

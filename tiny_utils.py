@@ -15,7 +15,7 @@ def tm_log():
     return datetime.datetime.now().strftime('[%Y-%m-%d %H:%M:%S %Z]')
 
 def mk_file_rw(fname):
-    fh = os.open ("qq1.junk", os.O_CREAT, 0600)
+    fh = os.open (fname, os.O_CREAT, 0600)
     os.close(fh)
 
 def drop_privileges3(uid_name, gid_name, files):

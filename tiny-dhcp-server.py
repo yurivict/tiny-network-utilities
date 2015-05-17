@@ -97,7 +97,7 @@ def log(s):
         myfile.write('%s %s\n' % (tu.tm_log(), s))
 def log_discard(what):
     with open(logfile(), "a") as myfile:
-        myfile.write('%s discarded %s\n' % (tm_log(), what))
+        myfile.write('%s discarded %s\n' % (tu.tm_log(), what))
 
 ##
 ## MAIN

@@ -26,7 +26,6 @@ def drop_privileges3(uid_name, gid_name, files):
     for f in files:
         if f is not None:
             os.chown(f, new_uid, new_gid)
-            os.chmod(f, 0o664)
     # remove group privileges
     os.setgroups([])
     # set uid/gid

@@ -172,6 +172,7 @@ if not os.geteuid()==0:
     sys.exit("Only root can run tiny-udp-anti-nat")
 
 ## starting
+tu.mk_file_rw(logfile())
 log('starting (divert-ip=%s, divert-port=%s)' % (arg_clnt_divert_ip, arg_clnt_divert_port))
 
 ## signals

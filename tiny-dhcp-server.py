@@ -108,6 +108,7 @@ if not os.geteuid()==0:
     sys.exit("Only root can run tiny-dhcp-server")
 
 ## starting
+tu.mk_file_rw(logfile())
 log('starting')
 
 ## signals

@@ -370,6 +370,17 @@ def create_sock_raw_ip():
 ## MAIN cycle
 ##
 
+## permissions
+if not os.geteuid()==0:
+    sys.exit("Only root can run tiny-udp-proxy")
+
+## starting
+tu.mk_file_rw(logfile())
+log('starting')
+
+## signals
+tu.handle_signals(lambda msg: log(msg))
+
 # run cmd-up if any
 if arg_cmd_up != None:
     res = os.system(arg_cmd_up)

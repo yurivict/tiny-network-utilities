@@ -96,11 +96,8 @@ def log(s):
     with open(logfile(), "a") as myfile:
         myfile.write('%s %s\n' % (tu.tm_log(), s))
 def log_discard(what):
-    if arg_daemonize:
-        with open(logfile(), "a") as myfile:
-            myfile.write('%s discarded %s\n' % (tm(), what))
-    else:
-        sys.stderr.write('%s discarded %s\n' % (tm(), what))
+    with open(logfile(), "a") as myfile:
+        myfile.write('%s discarded %s\n' % (tm_log(), what))
 
 ##
 ## MAIN

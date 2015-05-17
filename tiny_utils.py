@@ -68,7 +68,8 @@ def write_pid_file2(fname, pid):
     f = open(fname, 'w')
     f.write(p)
     f.close()
-    # it should always be the matching atexit.register(os.remove)
+    os.chmod(fname, 0400)
+    # there should always be the matching atexit.register(os.remove)
 
 def write_pid_file(f):
     write_pid_file2(f, os.getpid())

@@ -277,7 +277,7 @@ def get_channel(ip_src, port_src, ip_dst, port_dst):
         chan['cnt_in'] = 0 # number of packets tunnelled peer->clnt
         channels[key] = chan
         all_sockets_m[id(peer_sock)] = chan
-        print('created the channel for %s with port %d' % (key,lport))
+        print('%s created the channel for %s with port %d' % (tu.tm_log(),key,lport))
         return chan
 
 def use_channel(chan):
@@ -345,8 +345,8 @@ def on_idle():
             cnt_lve = cnt_lve+1
     for key in keys_to_delete.keys():
         chan = channels[key]
-        print('destroyed the channel for %s with port %d (expired after %d sec, cnt-in=%d, cnt-out=%d)'
-              % (key,chan['lport'],opt_socket_expiration_ms/1000, chan['cnt_in'], chan['cnt_out']))
+        print('%s destroyed the channel for %s with port %d (expired after %d sec, cnt-in=%d, cnt-out=%d)'
+              % (tu.tm_log(), key,chan['lport'],opt_socket_expiration_ms/1000, chan['cnt_in'], chan['cnt_out']))
         del channels[key]
     all_sockets_v = new_all_sockets_v
 

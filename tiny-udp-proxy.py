@@ -138,7 +138,7 @@ def tm_ms():
     global timer_process_start
     return '%0.3f' % (timer() - timer_process_start)
 def log(s):
-    print("LOG %s" % (s))
+    print("%s" % (s))
     with open(logfile(), "a") as myfile:
         myfile.write('%s %s %s\n' % (tm_ms(), tu.tm_log(), s))
 def log_pkt(is_req, ip, port, data):
@@ -374,6 +374,9 @@ def create_sock_raw_ip():
 if not os.geteuid()==0:
     sys.exit("Only root can run tiny-udp-proxy")
 
+# start time
+timer_process_start = timer()
+
 ## starting
 tu.mk_file_rw(logfile())
 log('starting')
@@ -394,9 +397,6 @@ if arg_cmd_up != None:
 sock_clnt = create_sock_divert(arg_clnt_divert_ip, arg_clnt_divert_port)
 all_sockets_v.append(sock_clnt)
 sock_clnt_w = create_sock_raw_ip()
-
-# start time
-timer_process_start = timer()
 
 # main event loop
 while True:

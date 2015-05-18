@@ -12,7 +12,7 @@ import atexit
 import datetime
 
 def tm_log():
-    return datetime.datetime.now().strftime('[%Y-%m-%d %H:%M:%S %Z]')
+    return datetime.datetime.now().strftime('[%Y-%m-%d %H:%M:%S]')
 
 def mk_file_rw(fname):
     fh = os.open(fname, os.O_CREAT, 0o0600)

@@ -114,6 +114,7 @@ peer_udp_port_hi=19299
 heartbit_period_sec=1
 idle_num_evts=100
 opt_socket_expiration_ms=30000 # 30 sec
+opt_report_count_period = 10000 # every 10 thousand packets
 
 ##
 ## stats
@@ -123,6 +124,7 @@ cnt_clnt_recv = 0
 cnt_clnt_sent = 0
 cnt_peer_recv = 0
 cnt_peer_sent = 0
+cnt_reported  = 0
 
 ##
 ## Some basic log and time functions
@@ -325,7 +327,7 @@ def recv_peer(chan,data,addr):
     cnt_peer_recv = cnt_peer_recv+1
     chan['cnt_in'] = chan['cnt_in']+1
 
-def on_idle():
+def destroy_old_channels():
     global channels, all_sockets_v, all_sockets_m, free_lports
     # delete too old channels and release their sockets
     tm_now = get_tm_ms()
@@ -349,6 +351,16 @@ def on_idle():
               % (tu.tm_log(), key,chan['lport'],opt_socket_expiration_ms/1000, chan['cnt_in'], chan['cnt_out']))
         del channels[key]
     all_sockets_v = new_all_sockets_v
+
+def log_packet_counts():
+    global cnt_peer_sent, cnt_peer_recv, cnt_reported, opt_report_count_period
+    if cnt_peer_sent + cnt_peer_recv - cnt_reported >= opt_report_count_period:
+        print('%s sent %d packets, received %d packets (total=%d)' % (tu.tm_log(), cnt_peer_sent, cnt_peer_recv, cnt_peer_sent + cnt_peer_recv))
+        cnt_reported = cnt_peer_sent + cnt_peer_recv
+
+def on_idle():
+    destroy_old_channels()
+    log_packet_counts()
 
 def run_cmd_down():
     global arg_cmd_down

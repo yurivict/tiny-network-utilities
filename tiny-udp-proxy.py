@@ -22,8 +22,8 @@
 #${fwcmd} add 03018 allow log udp from any to 1.1.1.0/24 out via tap1
 
 
-import sys, os, getopt
-import socket,select
+import sys, os, errno, getopt
+import socket, select
 import array
 import struct
 import random
@@ -115,6 +115,7 @@ heartbit_period_sec=1
 idle_num_evts=100
 opt_socket_expiration_ms=30000 # 30 sec
 opt_report_count_period = 10000 # every 10 thousand packets
+opt_error_retry_sec=0.3
 
 ##
 ## stats
@@ -318,7 +319,14 @@ def recv_peer(chan,data,addr):
     pkt = packet_new_udp(addr[0], chan['ip_clnt'], chan['port_peer'], chan['port_clnt'], chan['pktid'], data)
     nc.checksum_calc_udp_packet(pkt)
     # send the response back to client
-    sock_clnt_w.sendto(pkt, (chan['ip_clnt'], chan['port_clnt']))
+    try:
+        sock_clnt_w.sendto(pkt, (chan['ip_clnt'], chan['port_clnt']))
+    except OSError as exc:
+        if exc.errno == errno.ENOBUFS:
+            process_err_ENOBUFS('client', sock_clnt_w, pkt, chan['ip_clnt'], chan['port_clnt'])
+        else:
+            log('error %d during sendto opertion to %s:%d' % (exc.errno, chan['ip_clnt'], chan['port_clnt']))
+            raise
     # log
     log_pkt(False, chan['ip_peer'], chan['port_peer'], data)
     if do_prn_packets:
@@ -377,6 +385,12 @@ def create_sock_raw_ip():
     sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
     sock.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
     return sock
+
+def process_err_ENOBUFS(name, sock, pkt, ip, port):
+    global opt_error_retry_sec
+    log('got ENOBUFS on %s socket while sendto operation to %s:%d, will retry in %f sec' % (name, ip, port, opt_error_retry_sec))
+    time.sleep(opt_error_retry_sec)
+    sock.sendto(pkt, (ip, port))
 
 ##
 ## MAIN cycle

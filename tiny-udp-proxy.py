@@ -141,7 +141,7 @@ def tm_ms():
     global timer_process_start
     return '%0.3f' % (timer() - timer_process_start)
 def log(s):
-    print("%s" % (s))
+    print("%s %s" % (tu.tm_log(), s))
     with open(logfile(), "a") as myfile:
         myfile.write('%s %s %s\n' % (tm_ms(), tu.tm_log(), s))
 def log_pkt(is_req, ip, port, data):

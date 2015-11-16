@@ -3,6 +3,8 @@
 # Copyright (C) 2015 by Yuri Victorovich. All rights reserved.
 # This code is licensed under BSD license.
 
+# TODO fix interference with DHCP @ port 68, need to pass some ports through
+
 ##
 ## tiny-udp-proxy
 ##
@@ -231,6 +233,10 @@ def alloc_lport():
 def release_lport(lport):
     free_lports.insert(0, lport)
 
+def is_port_local(port):
+    # DHCP and NFS are considered local (TODO add dynamic NFS mountd port)
+    return port==68 or port==111 or port==1110 or port==2049 or port==4045
+
 def create_peer_socket(lport):
     try_cnt = 0
     while try_cnt < 5:
@@ -289,7 +295,7 @@ def use_channel(chan):
 def unpack_port(port_bytes):
     return socket.ntohs(struct.unpack('H', port_bytes)[0])
 
-def recv_clnt(data,addr):
+def recv_clnt(sock,data,addr):
     global cnt_clnt_recv, cnt_peer_sent
     # full UDP packet is in data, packet IP is described as 'struct ip' (netinet/ip.h) is received as data, parse it:
     pkt_ip_src   = unpack_ip(data[12:16])
@@ -297,6 +303,9 @@ def recv_clnt(data,addr):
     pkt_port_src = unpack_port(data[20:22])
     pkt_port_dst = unpack_port(data[22:24])
     pkt_payload  = data[28:]
+    if is_port_local(pkt_port_dst):
+        log('preserving packet of size %d with the local port %d addr=%s' % (len(data), pkt_port_dst, addr))
+        return
     # find socket to send to
     chan = get_channel(pkt_ip_src, pkt_port_src, pkt_ip_dst, pkt_port_dst)
     if chan == None:
@@ -431,7 +440,7 @@ while True:
     for sock_ready in ii:
         (data, addr) = sock_ready.recvfrom(64000, 1024)
         if sock_ready == sock_clnt:
-            recv_clnt(data, addr)
+            recv_clnt(sock_ready, data, addr)
         else:
             recv_peer(all_sockets_m[id(sock_ready)], data, addr)
     # idle

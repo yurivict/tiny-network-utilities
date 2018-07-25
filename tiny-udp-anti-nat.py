@@ -1,4 +1,4 @@
-#!/usr/local/bin/python3.4
+#!/usr/bin/env python
 
 # Copyright (C) 2015 by Yuri Victorovich. All rights reserved.
 # This code is licensed under BSD license.

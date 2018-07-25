@@ -335,7 +335,7 @@ def recv_peer(chan,data,addr):
             process_err_ENOBUFS('client', sock_clnt_w, pkt, chan['ip_clnt'], chan['port_clnt'])
         else:
             log('error %d during sendto opertion to %s:%d' % (exc.errno, chan['ip_clnt'], chan['port_clnt']))
-            raise
+            #raise
     # log
     log_pkt(False, chan['ip_peer'], chan['port_peer'], data)
     if do_prn_packets:

@@ -11,7 +11,7 @@
 ## provided by the firewall rules.
 ##
 
-## Sample divert ipfw rules: it seems it is necessary to habe 4 tules for UDP destination re-write
+## Sample divert ipfw rules: it seems it is necessary to have 4 tuples for UDP destination re-write
 #$ipfw 03055 divert 03056 log udp from 1.1.1.2 to any dst-port 53 in via tap1
 #$ipfw 03056 divert 03056 log udp from 1.1.1.1 to any src-port 10053 out via tap1
 #$ipfw 03057 allow log udp from 1.1.1.0/24 to 1.1.1.1 dst-port 10053 in via tap1

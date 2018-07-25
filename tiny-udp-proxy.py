@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright (C) 2015 by Yuri Victorovich. All rights reserved.
+# Copyright (C) 2015-2018 by Yuri Victorovich. All rights reserved.
 # This code is licensed under BSD license.
 
 # TODO fix interference with DHCP @ port 68, need to pass some ports through

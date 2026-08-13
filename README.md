@@ -1,3 +1,5 @@
+
+
 # tiny-network-utilities
 Minimalistic network server implementations to support VM network connectivity
 
@@ -46,3 +48,11 @@ tiny-dhcp-server expects interfaces to be up and initialized with an IP address.
 
 # tiny-udp-proxy
 Simple UDP proxy for FreeBSD
+
+## Requirements
+* `kldload ipdivert` kernel module
+
+## Usage
+```shell
+tiny-udp-proxy.py -c divert:<IP>:<PORT> -p local:<PEER_IP>
+```
